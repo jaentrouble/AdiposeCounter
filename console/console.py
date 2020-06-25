@@ -3,13 +3,21 @@ from tkinter import ttk
 from .console_f import *
 from functools import partial
 from PIL import ImageTk, Image
+from multiprocessing import Process
 
-class Console():
+class Console(Process):
     """
     Console
     All the commands called by buttons, etc. are in console_f.py
     """
     def __init__(self):
+        """
+        Tk objects are not pickleable
+        Initiate all windows when start()
+        """
+        super().__init__(daemon=True)
+
+    def initiate(self):
         self.root = tk.Tk()
         self.root.title('Adipose Counter')
         self.mainframe = ttk.Frame(self.root, padding='3 3 12 12')
@@ -128,6 +136,7 @@ class Console():
         self.root.rowconfigure(1, weight=1)
 
     def run(self):
+        self.initiate()
         self.root.mainloop()
 
     @property
