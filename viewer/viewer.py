@@ -1,9 +1,9 @@
 import pygame
 import numpy as np
-from queue import Queue
-from threading import Thread
+from multiprocessing import Queue
+from multiprocessing import Process
 
-class Viewer(Thread) :
+class Viewer(Process) :
     """
     This module shows a numpy array(3D) on a display
     String 'Terminate' will terminate the viewer
@@ -20,11 +20,8 @@ class Viewer(Thread) :
         image_queue: a Queue to get image array
         etc_queue: a Queue to get any info like 'terminate'
         """
-        super().__init__(daemon=False)
-        pygame.init()
+        super().__init__(daemon=True)
         self.size = (width, height)
-        self._screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
-        self._clock = pygame.time.Clock()
         self._event_queue = event_queue
         self._image_queue = image_queue
         self._etc_queue = etc_queue
@@ -35,6 +32,9 @@ class Viewer(Thread) :
         Run viewer's mainloop
         """
         mainloop = True
+        pygame.init()
+        self._clock = pygame.time.Clock()
+        self._screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
         while mainloop :
             self._clock.tick(self._fps)
             if not self._image_queue.empty():
@@ -88,5 +88,7 @@ if __name__ == '__main__':
     etcQ = Queue()
     v = Viewer(720, 300, evntQ, imgQ, etcQ)
     v.start()
+    time.sleep(3)
     newimg = np.ones((600,600,3), dtype=np.uint8)*100
     imgQ.put(newimg)
+    time.sleep(3)
