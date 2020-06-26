@@ -1,21 +1,23 @@
-from console.console import Console
-from viewer.viewer import Viewer
+from sources.console import Console
+from sources.viewer import Viewer
+from sources.engine import Engine
 from multiprocessing import Queue
+from sources.common.constants import *
 import time
 import numpy as np
 
 if __name__ == '__main__':
-    console_test = Console()
     imgQ = Queue()
     evntQ = Queue()
     etcQ = Queue()
-    viewer_test = Viewer(720, 300, evntQ, imgQ, etcQ)
+    termQ =Queue()
+    to_ConsoleQ = Queue()
+    to_EngineQ = Queue()
+    console_test = Console(to_ConsoleQ, to_EngineQ, termQ)
+    viewer_test = Viewer(720, 300, evntQ, imgQ, etcQ, termQ)
+    engine_test = Engine(to_EngineQ, to_ConsoleQ, imgQ, evntQ, etcQ)
     viewer_test.start()
     console_test.start()
-    time.sleep(5)
-    newimg = np.ones((600,600,3), dtype=np.uint8)*100
-    imgQ.put(newimg)
-    time.sleep(3)
-    newimg = np.random.randint(0,255,(400,300,3),dtype=np.uint8)
-    imgQ.put(newimg)
-    time.sleep(3)
+    engine_test.start()
+    to_EngineQ.put({NEWIMAGE:'testimage.jpg'})
+    termQ.get()

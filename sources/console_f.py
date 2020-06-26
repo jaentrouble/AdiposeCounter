@@ -1,21 +1,24 @@
+from .common.constants import *
+
 ## commands to call from console
 
 # Functions for Top-left threshold setting menu ###############################
-def button_mem_col_f():
-    print('button_mem_col_f not implemented yet')
+def button_mem_col_f(q):
+    q.put({SET_MEM:None})
 
-def button_cell_col_f():
-    print('button_cell_col_f not implemented yet')
+def button_cell_col_f(q):
+    q.put({SET_CELL:None})
 
-def button_ratio_f(ratio):
-    print('ratio : {}'.format(ratio.get()))
+def button_ratio_f(ratio, q):
+    print(ratio.get())
+    q.put({SET_RATIO:ratio.get()})
 
 # Functions for Top-Middle show/hide mask menu ################################
-def button_show_mask_f():
-    print('button_show_mask_f not implemented yet')
+def button_show_mask_f(q):
+    q.put({MODE_MASK:None})
 
-def button_hide_mask_f():
-    print('button_hide_mask_f not implemented yet')
+def button_hide_mask_f(q):
+    q.put({MODE_IMAGE:None})
 
 # Functions for Top-Right Prev/Next menu ######################################
 def button_prev_f():

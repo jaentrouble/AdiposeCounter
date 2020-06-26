@@ -2,14 +2,15 @@ import pygame
 import numpy as np
 from multiprocessing import Queue
 from multiprocessing import Process
+from .common.constants import *
 
 class Viewer(Process) :
     """
     This module shows a numpy array(3D) on a display
-    String 'Terminate' will terminate the viewer
     """
     def __init__(self, width:int, height:int, event_queue:Queue,
-                 image_queue:Queue, etc_queue:Queue, fps=60):
+                 image_queue:Queue, etc_queue:Queue, termQ:Queue,
+                 fps=60):
         """
         Initialize Viewer
 
@@ -18,7 +19,7 @@ class Viewer(Process) :
         height : Height of the screen (Default 720)
         event_queue: a Queue to put events that happended in Viewer
         image_queue: a Queue to get image array
-        etc_queue: a Queue to get any info like 'terminate'
+        etc_queue: a Queue to get any meta info
         """
         super().__init__(daemon=True)
         self.size = (width, height)
@@ -26,6 +27,8 @@ class Viewer(Process) :
         self._image_queue = image_queue
         self._etc_queue = etc_queue
         self._fps = fps
+        self._put_mouse_pos = False
+        self._termQ = termQ
 
     def run(self) :
         """
@@ -44,9 +47,14 @@ class Viewer(Process) :
                     self._screen = pygame.display.set_mode(self.size)
                 pygame.surfarray.blit_array(self._screen, image)
             if not self._etc_queue.empty():
-                external_event = self._etc_queue.get()
-                if external_event == 'Terminate' :
-                    mainloop = False
+                q = self._etc_queue.get()
+                for k,v in q.items():
+                    if k == TERMINATE:
+                        mainloop=False
+                    elif k == MOUSEPOS_ON:
+                        self._put_mouse_pos = True
+                    elif k == MOUSEPOS_OFF:
+                        self._put_mouse_pos = False
             ###escape
             for event in pygame.event.get() :
                 if event.type == pygame.QUIT :
@@ -54,14 +62,15 @@ class Viewer(Process) :
                 elif event.type == pygame.KEYDOWN :
                     if event.key == pygame.K_ESCAPE :
                         mainloop = False 
-                        return
-            ######################################          
-        # if direct :
-        #     pygame.surfarray.blit_array(self._screen, surfarray)
-        # else :
-        #     surface = pygame.surfarray.make_surface(surfarray)
-        #     self._screen.blit(surface, (0,0))
+            ######################################
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if pygame.mouse.get_pressed()[0]:
+                        self._event_queue.put({MOUSEDOWN:pygame.mouse.get_pos()})
+
+            if self._put_mouse_pos:
+                self._event_queue.put({MOUSEPOS:pygame.mouse.get_pos()})
             pygame.display.flip()
+        self._termQ.put(TERMINATE)
 
     @property
     def size(self):
@@ -79,6 +88,15 @@ class Viewer(Process) :
 
     def close(self):
         pygame.quit()
+
+
+
+
+# Constants ###################################################################
+
+
+
+
 
 #testing
 if __name__ == '__main__':

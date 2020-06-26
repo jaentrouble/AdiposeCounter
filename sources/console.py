@@ -3,19 +3,23 @@ from tkinter import ttk
 from .console_f import *
 from functools import partial
 from PIL import ImageTk, Image
-from multiprocessing import Process
+from multiprocessing import Process, Queue
+from .common.constants import *
 
 class Console(Process):
     """
     Console
     All the commands called by buttons, etc. are in console_f.py
     """
-    def __init__(self):
+    def __init__(self, to_ConsoleQ:Queue, to_EngineQ:Queue, termQ:Queue):
         """
         Tk objects are not pickleable
         Initiate all windows when start()
         """
         super().__init__(daemon=True)
+        self._to_ConsoleQ = to_ConsoleQ
+        self._to_EngineQ = to_EngineQ
+        self._termQ = termQ
 
     def initiate(self):
         self.root = tk.Tk()
@@ -35,11 +39,13 @@ class Console(Process):
         self.frame_threshold.grid(column=0, row=0, sticky = (tk.W, tk.N))
         self.button_mem_col = ttk.Button(self.frame_threshold,
                                          text='Membrane Color',
-                                         command=button_mem_col_f)
+                                         command=partial(button_mem_col_f,
+                                         q=self._to_EngineQ))
         self.button_mem_col.grid(column=0, row=0, sticky=(tk.W))
         self.button_cell_col = ttk.Button(self.frame_threshold,
                                          text='Cell Color',
-                                         command=button_cell_col_f)
+                                         command=partial(button_cell_col_f,
+                                         q=self._to_EngineQ))
         self.button_cell_col.grid(column=0, row=1, sticky=(tk.W))
         ########### Color sample
         self.label_mem_color = ttk.Label(self.frame_threshold)
@@ -64,7 +70,8 @@ class Console(Process):
         self.scale_ratio.grid(column=0, row=2)
         self.button_ratio = ttk.Button(self.frame_threshold,
                                        text='Set',
-                                       command=partial(button_ratio_f, self.ratio))
+                                       command=partial(button_ratio_f, 
+                                       self.ratio, self._to_EngineQ))
         self.button_ratio.grid(column=1, row=2)
 
         # Configure Top-Middle show/hide mask menu ############################
@@ -72,11 +79,13 @@ class Console(Process):
         self.frame_mask.grid(column=1, row=0, sticky = (tk.W, tk.N, tk.E))
         self.button_show_mask = ttk.Button(self.frame_mask,
                                            text='Show mask',
-                                           command=button_show_mask_f)
+                                           command=partial(button_show_mask_f,
+                                           q=self._to_EngineQ))
         self.button_show_mask.grid(column=0, row=0)
         self.button_hide_mask = ttk.Button(self.frame_mask,
                                            text='Hide mask',
-                                           command=button_hide_mask_f)
+                                           command=partial(button_hide_mask_f,
+                                           q=self._to_EngineQ))
         self.button_hide_mask.grid(column=0, row=1)
 
         # Configure Top-Right Prev/Next menu ##################################
@@ -137,7 +146,10 @@ class Console(Process):
 
     def run(self):
         self.initiate()
+        self.root.after(16, self.update)
         self.root.mainloop()
+        self._termQ.put(TERMINATE)
+
 
     @property
     def mem_color(self):
@@ -177,3 +189,13 @@ class Console(Process):
     def list_items(self, list_of_items):
         self._list_items = list_of_items.copy()
         self._list_var.set(self._list_items)
+
+    def update(self):
+        if not self._to_ConsoleQ.empty():
+            q = self._to_ConsoleQ.get()
+            for k,v in q.items():
+                if k == SET_MEM:
+                    self.mem_color = tuple(v)
+                elif k == SET_CELL:
+                    self.cell_color = tuple(v)
+        self.root.after(16, self.update)
