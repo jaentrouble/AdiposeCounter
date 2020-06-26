@@ -21,11 +21,14 @@ def button_hide_mask_f(q):
     q.put({MODE_IMAGE:None})
 
 # Functions for Top-Right Prev/Next menu ######################################
-def button_prev_f():
-    print('button_prev_f not implemented yet')
+# All functions are implemented in Console method
+# def button_prev_f():
+#     print('button_prev_f not implemented yet')
 
-def button_next_f():
-    print('button_next_f not implemented yet')
+# def button_next_f():
+#     print('button_next_f not implemented yet')
+
+# button_open_f is implemented in Console method
 
 # Functions for Bottom-Left Draw menu #########################################
 def button_draw_border_f():

@@ -5,6 +5,8 @@ from functools import partial
 from PIL import ImageTk, Image
 from multiprocessing import Process, Queue
 from .common.constants import *
+import os
+from tkinter import filedialog
 
 class Console(Process):
     """
@@ -20,6 +22,7 @@ class Console(Process):
         self._to_ConsoleQ = to_ConsoleQ
         self._to_EngineQ = to_EngineQ
         self._termQ = termQ
+        self._image_name_list=[]
 
     def initiate(self):
         self.root = tk.Tk()
@@ -33,6 +36,7 @@ class Console(Process):
         self._list_items = []
         self._list_var = tk.DoubleVar(value=self._list_items)
         self.root.resizable(False, False)
+        self._img_name_var = tk.StringVar(value='No image loaded')
 
         # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
@@ -93,12 +97,19 @@ class Console(Process):
         self.frame_prevnext.grid(column=2, row=0, sticky = (tk.E, tk.N))
         self.button_prev = ttk.Button(self.frame_prevnext,
                                       text='Prev',
-                                      command=button_prev_f)
+                                      command=self.button_prev_f)
         self.button_prev.grid(column=0, row=0)
         self.button_next = ttk.Button(self.frame_prevnext,
                                       text='Next',
-                                      command=button_next_f)
+                                      command=self.button_next_f)
         self.button_next.grid(column=0, row=1)
+        self.button_open = ttk.Button(self.frame_prevnext,
+                                      text='Open',
+                                      command=self.button_open_f)
+        self.button_open.grid(column=0, row=2)
+        self.label_img_name = ttk.Label(self.frame_prevnext,
+                                        textvariable=self._img_name_var)
+        self.label_img_name.grid(column=0, row=3)
 
         # Configure Bottom-Left Draw menu #####################################
         self.frame_draw = ttk.Frame(self.root, padding='5 5 5 5')
@@ -189,6 +200,41 @@ class Console(Process):
     def list_items(self, list_of_items):
         self._list_items = list_of_items.copy()
         self._list_var.set(self._list_items)
+
+    def button_open_f(self):
+        dirname = filedialog.askdirectory()
+        print(dirname)
+        if dirname == '':
+            pass
+        else:
+            self._image_folder = dirname
+            self._image_name_list = []
+            self._image_idx = 0
+            for (dirpath, dirnames, filenames) in os.walk(self._image_folder):
+                self._image_name_list.extend(filenames)
+            self._to_EngineQ.put({
+                NEWIMAGE:os.path.join(self._image_folder,
+                        self._image_name_list[self._image_idx])
+            })
+            self._img_name_var.set(self._image_name_list[self._image_idx])
+
+    def button_next_f(self):
+        if len(self._image_name_list) > 0 :
+            self._image_idx = (self._image_idx+1)%len(self._image_name_list)
+            self._to_EngineQ.put({
+                NEWIMAGE:os.path.join(self._image_folder,
+                        self._image_name_list[self._image_idx])
+            })
+            self._img_name_var.set(self._image_name_list[self._image_idx])
+
+    def button_prev_f(self):
+        if len(self._image_name_list) > 0 :
+            self._image_idx = (self._image_idx-1)%len(self._image_name_list)
+            self._to_EngineQ.put({
+                NEWIMAGE:os.path.join(self._image_folder,
+                        self._image_name_list[self._image_idx])
+            })
+            self._img_name_var.set(self._image_name_list[self._image_idx])
 
     def update(self):
         if not self._to_ConsoleQ.empty():

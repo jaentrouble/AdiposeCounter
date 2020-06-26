@@ -19,5 +19,4 @@ if __name__ == '__main__':
     viewer_test.start()
     console_test.start()
     engine_test.start()
-    to_EngineQ.put({NEWIMAGE:'testimage.jpg'})
     termQ.get()
