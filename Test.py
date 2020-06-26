@@ -1,12 +1,13 @@
 from sources.console import Console
 from sources.viewer import Viewer
 from sources.engine import Engine
-from multiprocessing import Queue
+from multiprocessing import Queue, set_start_method
 from sources.common.constants import *
 import time
 import numpy as np
 
 if __name__ == '__main__':
+    set_start_method('spawn')
     imgQ = Queue()
     evntQ = Queue()
     etcQ = Queue()
