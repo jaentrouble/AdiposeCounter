@@ -3,6 +3,9 @@ from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
 
+# To limit loop rate
+from pygame.time import Clock
+
 class Engine(Process):
     """
     Main process that calculates all the necessary computations
@@ -111,9 +114,8 @@ class Engine(Process):
                                                         axis=2,
                                                         keepdims=True)
         print(ratio)
-        mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
-        print(mask_bool[40][1:4])
-        self.mask = mask_bool * CELL
+        self._mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
+        self.mask = self._mask_bool * CELL
         self._updated = True
     
     def put_image(self):
@@ -124,7 +126,9 @@ class Engine(Process):
 
     def run(self):
         mainloop = True
+        self._clock = Clock()
         while mainloop:
+            self._clock.tick(60)
             if not self._to_EngineQ.empty():
                 q = self._to_EngineQ.get()
                 for k, v in q.items():

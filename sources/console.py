@@ -31,8 +31,6 @@ class Console(Process):
         self.mainframe.grid(column=0, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        self._mem_color = (0,0,0)
-        self._cell_color = (0,0,0)
         self._list_items = []
         self._list_var = tk.DoubleVar(value=self._list_items)
         self.root.resizable(False, False)
@@ -54,16 +52,16 @@ class Console(Process):
         ########### Color sample
         self.label_mem_color = ttk.Label(self.frame_threshold)
         self.image_mem_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
-                                                            color=(0,0,0)
+                                                            color=MEMBRANE
                                                             ))
         self.label_mem_color['image'] = self.image_mem_color
         self.label_mem_color.grid(column=1, row=0, sticky=(tk.W))
         ###
         self.label_cell_color = ttk.Label(self.frame_threshold)
         self.image_cell_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
-                                                            color=(0,0,0)
+                                                            color=CELL
                                                             ))
-        self.label_cell_color['image'] = self.image_mem_color
+        self.label_cell_color['image'] = self.image_cell_color
         self.label_cell_color.grid(column=1, row=1, sticky=(tk.W))
         ###########
         self.ratio = tk.DoubleVar()
