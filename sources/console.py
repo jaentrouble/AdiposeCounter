@@ -125,7 +125,8 @@ class Console(Process):
         self.button_draw_border.grid(column=0, row=1)
         self.button_draw_cell = ttk.Button(self.frame_draw,
                                            text='Color White',
-                                           command=button_draw_cell_f)
+                                           command=partial(button_draw_cell_f,
+                                           q=self._to_EngineQ))
         self.button_draw_cell.grid(column=0, row=2)
         self.button_draw_apply = ttk.Button(self.frame_draw,
                                             text='Apply',
@@ -268,7 +269,7 @@ class Console(Process):
                     self._draw_mode_var.set('Draw membrane\nUndo:z\nStop:Enter\
                         \nPress Apply when finished')
                 elif k == MODE_DRAW_CELL:
-                    self._draw_mode_var.set('Not implemented DRAW_CELL')
+                    self._draw_mode_var.set('Not implemented DRAW_CELL info')
                 elif k == MODE_NONE:
                     self._draw_mode_var.set(self._default_draw_mode_str)
         self.root.after(16, self.update)

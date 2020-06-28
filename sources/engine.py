@@ -7,8 +7,8 @@ from skimage import draw, transform
 # To limit loop rate
 from pygame.time import Clock
 
-# TODO: make undo
-
+#TODO: implement Draw_cell main part
+#TODO: Should turn mode to None when click 'Set'
 
 class Engine(Process):
     """
@@ -39,6 +39,9 @@ class Engine(Process):
         #TODO: Use different list for cell count layers to prevent merging with
         #      Cell-Membrane layers
         self._layers = []
+        # Cursor should act independently, but for simplicity, 
+        # use same machanism
+        self._cursor = [] 
         # Modes related to drawings
         self._is_drawing = False
         self._line_start_pos = None
@@ -58,6 +61,15 @@ class Engine(Process):
         if len(image.shape) != 3 and image.shape[2] != 3:
             raise TypeError('Inappropriate shape of image')
         self._image = image.astype(np.uint8)
+        self._shape = self._image.shape
+
+    @property
+    def shape(self):
+        """
+        Do not implement shape.setter
+        Shape is dependent to image and should only be setted with image
+        """
+        return self._shape
 
     @property
     def mask(self):
@@ -71,7 +83,7 @@ class Engine(Process):
         """
         Must be a shape of (width, height, 3) and same as current image
         """
-        if mask.shape != self.image.shape:
+        if mask.shape != self.shape:
             raise TypeError('Inappropriate shape of mask')
         self._mask = mask.astype(np.uint8)
 
@@ -142,6 +154,9 @@ class Engine(Process):
             for c, m in self._layers:
                 np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
                 np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
+            for c, m in self._cursor:
+                np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
+                np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
             self._imageQ.put(tmp_mask)
         else:
             self._imageQ.put(self.image)
@@ -156,7 +171,7 @@ class Engine(Process):
         """
         Make a new layer and draw inital point (Red dot)
         """
-        new_layer = np.zeros((self.mask.shape[0],self.mask.shape[1],1),
+        new_layer = np.zeros((self.shape[0],self.shape[1],1),
                              dtype=np.bool)
         color = LINE_START
         x, y = pos
@@ -220,6 +235,25 @@ class Engine(Process):
         self._mode = None
         self._updated = True
 
+    def draw_cell_mode_init(self):
+        """
+        When draw_cell mode started, not when clicked
+        Call once
+        """
+        self._etcQ.put({MOUSEPOS_ON:None})
+        self._is_drawing = False
+
+    def draw_cell_cursor(self, pos):
+        start = (pos[0]-2,pos[1]-2)
+        rr, cc = draw.rectangle_perimeter(start, extent=(5,5), shape=self.shape)
+        if len(self._cursor) == 0:
+            self._cursor.append((CURSOR,
+                                 np.zeros((self.shape[0],self.shape[1],1),
+                                          dtype=np.bool)))
+        self._cursor[0][1].fill(False)
+        self._cursor[0][1][rr,cc] = True
+        self._updated = True
+
     def run(self):
         mainloop = True
         self._clock = Clock()
@@ -251,8 +285,8 @@ class Engine(Process):
                         self._mode = MODE_DRAW_MEM
                         self._updated = True
                     elif k == DRAW_CELL:
-                        #TODO: implement draw_cell
-                        pass
+                        self._mode = MODE_DRAW_CELL
+                        self.draw_cell_mode_init()
                     elif k == DRAW_OFF:
                         self.draw_apply()
                     elif k == DRAW_CANCEL:
@@ -280,6 +314,9 @@ class Engine(Process):
                             self.draw_mem_start(v)
                         elif self._mode == MODE_DRAW_MEM and self._is_drawing:
                             self.draw_mem_end(v)
+                    elif k == MOUSEPOS:
+                        if self._mode == MODE_DRAW_CELL:
+                            self.draw_cell_cursor(v)
                     # Keyboard events
                     elif k == K_Z:
                         self.draw_undo()

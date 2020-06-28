@@ -40,8 +40,8 @@ def button_hide_mask_f(q):
 def button_draw_border_f(q):
     q.put({DRAW_MEM:None})
 
-def button_draw_cell_f():
-    print('button_draw_cell_f not implemented yet')
+def button_draw_cell_f(q):
+    q.put({DRAW_CELL:None})
 
 def button_draw_apply_f(q):
     answer = messagebox.askyesno(message='Apply all drawings?')
