@@ -2,6 +2,7 @@ import numpy as np
 from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
+from skimage import draw
 
 # To limit loop rate
 from pygame.time import Clock
@@ -26,6 +27,9 @@ class Engine(Process):
         self._color_mode = None
         self.mem_color = MEMBRANE
         self.cell_color = CELL
+        self._layers = []
+        self._draw_mode = None
+        self._is_drawing = False
 
     @property
     def image(self):
@@ -89,6 +93,7 @@ class Engine(Process):
         self._updated = True
 
     def load_image(self, path:str):
+        #TODO: Resize image?
         im = Image.open(path)
         self.image = np.asarray(im).swapaxes(0,1)
         self._updated = True
@@ -124,6 +129,10 @@ class Engine(Process):
         else:
             self._imageQ.put(self.image)
 
+    def draw_mem_start(self, pos):
+        #TODO:implement
+        pass
+
     def run(self):
         mainloop = True
         self._clock = Clock()
@@ -148,6 +157,8 @@ class Engine(Process):
                         self._color_mode = SET_CELL
                     elif k == SET_RATIO:
                         self.set_new_mask(v)
+                    elif k == DRAW_MEM:
+                        self._draw_mode = DRAW_MEM
 
             if not self._eventQ.empty():
                 q = self._eventQ.get()
