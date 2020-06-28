@@ -6,7 +6,7 @@ from PIL import ImageTk, Image
 from multiprocessing import Process, Queue
 from .common.constants import *
 import os
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 class Console(Process):
     """
@@ -35,6 +35,8 @@ class Console(Process):
         self._list_var = tk.DoubleVar(value=self._list_items)
         self.root.resizable(False, False)
         self._img_name_var = tk.StringVar(value='No image loaded')
+        self._default_draw_mode_str = 'Click Buttons to draw'
+        self._draw_mode_var = tk.StringVar(value=self._default_draw_mode_str)
 
         # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
@@ -112,14 +114,27 @@ class Console(Process):
         # Configure Bottom-Left Draw menu #####################################
         self.frame_draw = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_draw.grid(column=0, row=1, sticky=(tk.W, tk.S))
+        self.button_draw_cancel = ttk.Button(self.frame_draw,
+                                             text='Cancel',
+                                             command=self.button_draw_cancel_f)
+        self.button_draw_cancel.grid(column=0, row=0)
         self.button_draw_border = ttk.Button(self.frame_draw,
                                              text='Draw Border',
-                                             command=button_draw_border_f)
-        self.button_draw_border.grid(column=0, row=0)
+                                             command=partial(button_draw_border_f,
+                                             q=self._to_EngineQ))
+        self.button_draw_border.grid(column=0, row=1)
         self.button_draw_cell = ttk.Button(self.frame_draw,
-                                           text='Draw Cell',
+                                           text='Color White',
                                            command=button_draw_cell_f)
-        self.button_draw_cell.grid(column=0, row=1)
+        self.button_draw_cell.grid(column=0, row=2)
+        self.button_draw_apply = ttk.Button(self.frame_draw,
+                                            text='Apply',
+                                            command=partial(button_draw_apply_f,
+                                            q=self._to_EngineQ))
+        self.button_draw_apply.grid(column=0, row=3)
+        self.label_draw_mode = ttk.Label(self.frame_draw,
+                                         textvariable=self._draw_mode_var)
+        self.label_draw_mode.grid(column=1, row=0, rowspan=3)
 
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
@@ -155,6 +170,7 @@ class Console(Process):
 
     def run(self):
         self.initiate()
+        self.button_open_f()
         self.root.after(16, self.update)
         self.root.mainloop()
         self._termQ.put(TERMINATE)
@@ -234,6 +250,12 @@ class Console(Process):
             })
             self._img_name_var.set(self._image_name_list[self._image_idx])
 
+    def button_draw_cancel_f(self):
+        answer = messagebox.askyesno(message='This will delete all unapplied drawings.\
+            \nContinue?')
+        if answer:
+            self._to_EngineQ.put({DRAW_CANCEL:None})
+
     def update(self):
         if not self._to_ConsoleQ.empty():
             q = self._to_ConsoleQ.get()
@@ -242,4 +264,11 @@ class Console(Process):
                     self.mem_color = tuple(v)
                 elif k == SET_CELL:
                     self.cell_color = tuple(v)
+                elif k == MODE_DRAW_MEM:
+                    self._draw_mode_var.set('Draw membrane\nUndo:z\nStop:Enter\
+                        \nPress Apply when finished')
+                elif k == MODE_DRAW_CELL:
+                    self._draw_mode_var.set('Not implemented DRAW_CELL')
+                elif k == MODE_NONE:
+                    self._draw_mode_var.set(self._default_draw_mode_str)
         self.root.after(16, self.update)
