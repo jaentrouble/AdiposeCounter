@@ -49,8 +49,9 @@ def button_draw_apply_f(q):
         q.put({DRAW_OFF:None})
 
 # Functions for Bottom-Middle Fill menu
-def button_fill_cell_f():
-    print('button_fill_cell_f not implemented yet')
+def button_fill_cell_f(q):
+    #TODO: Add checking message box
+    q.put({FILL_CELL:None})
 
 # Functions for Bottom-Right Save menu
 def button_save_f():

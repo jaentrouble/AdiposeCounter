@@ -10,7 +10,7 @@ class Viewer(Process) :
     """
     def __init__(self, width:int, height:int, event_queue:Queue,
                  image_queue:Queue, etc_queue:Queue, termQ:Queue,
-                 fps=30):
+                 fps=60):
         """
         Initialize Viewer
 
@@ -29,6 +29,7 @@ class Viewer(Process) :
         self._fps = fps
         self._put_mouse_pos = False
         self._termQ = termQ
+        self._show_cursor = False
 
     def run(self) :
         """
@@ -38,6 +39,13 @@ class Viewer(Process) :
         pygame.init()
         self._clock = pygame.time.Clock()
         self._screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
+        self._background = pygame.Surface(self.size)
+        self._allgroup = pygame.sprite.LayeredDirty()
+        self._cursor = Cursor()
+        self._big_cursor = BigCursor()
+        self._cursor.add(self._allgroup)
+        self._big_cursor.add(self._allgroup)
+        self._mouse_prev = pygame.mouse.get_pos()
         while mainloop :
             self._clock.tick(self._fps)
             if not self._image_queue.empty():
@@ -45,16 +53,28 @@ class Viewer(Process) :
                 if image.shape[0:2] != self.size:
                     self.size = image.shape[0:2]
                     self._screen = pygame.display.set_mode(self.size)
-                pygame.surfarray.blit_array(self._screen, image)
+                    self._background = pygame.Surface(self.size)
+                pygame.surfarray.blit_array(self._background, image)
+                self._screen.blit(self._background, (0,0))
             if not self._etc_queue.empty():
                 q = self._etc_queue.get()
-                for k,v in q.items():
+                for k, v in q.items():
                     if k == TERMINATE:
                         mainloop=False
                     elif k == MOUSEPOS_ON:
                         self._put_mouse_pos = True
                     elif k == MOUSEPOS_OFF:
                         self._put_mouse_pos = False
+                    elif k == BIG_CURSOR_ON:
+                        self._big_cursor.visible = True
+                        self._cursor.visible = False
+                        # To erase it from the screen
+                        self._cursor.dirty = True
+                    elif k == BIG_CURSOR_OFF:
+                        self._cursor.visible = True
+                        self._big_cursor.visible = False
+                        # To erase it from the screen
+                        self._big_cursor.dirty = True
             ###escape
             for event in pygame.event.get() :
                 if event.type == pygame.QUIT :
@@ -75,8 +95,12 @@ class Viewer(Process) :
                 elif event.type == pygame.MOUSEBUTTONUP:
                     self._event_queue.put({MOUSEUP:None})
 
-            if self._put_mouse_pos:
+            if self._put_mouse_pos and self._mouse_prev!=pygame.mouse.get_pos():
+                self._mouse_prev = pygame.mouse.get_pos()
                 self._event_queue.put({MOUSEPOS:pygame.mouse.get_pos()})
+            self._allgroup.update()
+            self._allgroup.clear(self._screen, self._background)
+            self._allgroup.draw(self._screen)
             pygame.display.flip()
         self._termQ.put(TERMINATE)
 
@@ -101,8 +125,26 @@ class Viewer(Process) :
 class Cursor(pygame.sprite.DirtySprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface([7,7])
+        self.image = pygame.Surface((5,5))
         self.image.fill(CURSOR)
+        self.rect = self.image.get_rect()
+        self.visible = True
+    
+    def update(self):
+        self.rect.center = pygame.mouse.get_pos()
+        self.dirty = 1
+
+class BigCursor(pygame.sprite.DirtySprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((11,11))
+        self.image.fill(CURSOR)
+        self.rect = self.image.get_rect()
+        self.visible = False
+
+    def update(self):
+        self.rect.center = pygame.mouse.get_pos()
+        self.dirty = 1
 
 #testing
 if __name__ == '__main__':

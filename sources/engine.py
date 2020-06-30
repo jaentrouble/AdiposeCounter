@@ -7,9 +7,7 @@ from skimage import draw, transform
 # To limit loop rate
 from pygame.time import Clock
 
-#TODO: implement Draw_cell main part
-#TODO: Should turn mode to None when click 'Set'
-#TODO: make cursor with pygame on Viewer not here.
+#TODO: Implement area calculation
 
 class Engine(Process):
     """
@@ -37,9 +35,9 @@ class Engine(Process):
         self.mem_color = MEMBRANE
         self.cell_color = CELL
         # (Color_of_layer(R,G,B), Bool mask(Width, Height, 1))
-        #TODO: Use different list for cell count layers to prevent merging with
-        #      Cell-Membrane layers
         self._layers = []
+        self._cell_layers = []
+        self._cell_counts = []
         # (Color_of_cursor(R,G,B), rr, cc) For speed
         self._cursor = None
         # Modes related to drawings
@@ -134,6 +132,8 @@ class Engine(Process):
         """
         ratio : if ratio * dist_to_memcolor > (1-ratio) * dist_to_cellcolor,
         the pixel is considered as cell
+        
+        ** This will reset all layers
         """
         print('set new mask')
         ratio /=100
@@ -144,15 +144,19 @@ class Engine(Process):
                                                         axis=2,
                                                         keepdims=True)
         print(ratio)
-        self._mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
-        self.mask = self._mask_bool * CELL
+        mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
+        self.mask = mask_bool * CELL
         self._mode = None
+        self._layers = []
         self._updated = True
     
     def put_image(self):
         if self._mask_mode:
             tmp_mask = self.mask
             for c, m in self._layers:
+                np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
+                np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
+            for c, m in self._cell_layers:
                 np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
                 np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
             if self._cursor != None :
@@ -167,6 +171,20 @@ class Engine(Process):
             self._to_ConsoleQ.put({self._mode:None})
         else:
             self._to_ConsoleQ.put({MODE_NONE:None})
+
+    def default_mode(self):
+        self._mode = None
+        self._updated = True
+
+    def set_mem_color(self, pos):
+        x,y = pos
+        new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
+        self.mem_color = new_color
+
+    def set_cell_color(self, pos):
+        x,y = pos
+        new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
+        self.cell_color = new_color
 
     def draw_mem_start(self, pos):
         """
@@ -241,8 +259,8 @@ class Engine(Process):
         When draw_cell mode started, not when clicked
         Call once
         """
-        self._etcQ.put({MOUSEPOS_ON:None})
         self._is_drawing = False
+        self._updated = True
 
     def draw_cell_cursor(self, pos):
         start = (pos[0]-2,pos[1]-2)
@@ -254,18 +272,54 @@ class Engine(Process):
         new_layer = np.zeros((self.shape[0],self.shape[1],1),
                              dtype=np.bool)
         color = CELL
-        new_layer[pos[0]-2:pos[0]+3,pos[1]-2:pos[1]+3] = True
+        new_layer[pos[0]-5:pos[0]+6,pos[1]-5:pos[1]+6] = True
         self._layers.append((color, new_layer))
         self._is_drawing = True
         self._updated = True
+        self._etcQ.put({BIG_CURSOR_ON:None})
+        self._etcQ.put({MOUSEPOS_ON:None})
 
     def draw_cell_continue(self, pos):
         _, last_layer = self._layers[-1]
-        last_layer[pos[0]-2:pos[0]+3,pos[1]-2:pos[1]+3] = True
+        last_layer[pos[0]-5:pos[0]+6,pos[1]-5:pos[1]+6] = True
         self._updated = True
 
     def draw_cell_end(self):
         self._is_drawing = False
+        self._updated = True
+        self._etcQ.put({BIG_CURSOR_OFF:None})
+        self._etcQ.put({MOUSEPOS_OFF:None})
+
+    def fill_cell(self, pos):
+        new_layer = np.zeros((self.shape[0],self.shape[1],1),
+                             dtype=np.bool)
+        pos_stack = [pos]
+        mask = self.mask
+        pix_count = 0
+        while len(pos_stack) > 0:
+            x, y = pos_stack.pop()
+            while (mask[x,y] == CELL).all() and x>=0:
+                x -= 1
+            x += 1
+            above, below = False, False
+            while x < self.shape[0] and (mask[x,y]==CELL).all():
+                mask[x,y] = COUNT
+                new_layer[x,y] = True
+                pix_count += 1
+                if (not above) and (y>0) and (mask[x,y-1]==CELL).all():
+                    pos_stack.append([x,y-1])
+                    above = True
+                elif (above) and (y>0) and (mask[x,y-1]!=CELL).all():
+                    above = False
+                elif (not below) and (y<self.shape[1]-1) and (mask[x,y+1]==CELL).all():
+                    pos_stack.append([x,y+1])
+                    below = True
+                elif (below) and (y<self.shape[1]-1) and (mask[x,y+1]==CELL).all():
+                    below = False
+                x += 1
+        self._cell_layers.append((COUNT, new_layer))
+        self._cell_counts.append(pix_count)
+        print(pix_count)
         self._updated = True
 
     def run(self):
@@ -293,6 +347,8 @@ class Engine(Process):
                     elif k == SET_CELL:
                         self._mode = MODE_SET_CELL
                     elif k == SET_RATIO:
+                        self.default_mode()
+                        self.mask_mode = True
                         self.set_new_mask(v)
                     #Drawing modes
                     elif k == DRAW_MEM:
@@ -305,6 +361,10 @@ class Engine(Process):
                         self.draw_apply()
                     elif k == DRAW_CANCEL:
                         self.draw_cancel()
+                    #Counting modes
+                    #TODO: Add a way to stop this mode
+                    elif k == FILL_CELL:
+                        self._mode = MODE_FILL_CELL
 
             if not self._eventQ.empty():
                 q = self._eventQ.get()
@@ -313,13 +373,14 @@ class Engine(Process):
                         # v : mouse pos which came from Viewer
                         # Set color
                         print('clicked')
+                        print(len(self._layers))
                         if self._mode == MODE_SET_MEM:
-                            self.mem_color = self.image[v]
+                            self.set_mem_color(v)
                             print(self.mem_color)
                             self._color_mode = None
                             self._to_ConsoleQ.put({SET_MEM:self.mem_color})
                         elif self._mode == MODE_SET_CELL:
-                            self.cell_color = self.image[v]
+                            self.set_cell_color(v)
                             self._color_mode = None
                             print(self.cell_color)
                             self._to_ConsoleQ.put({SET_CELL:self.cell_color})
@@ -330,14 +391,14 @@ class Engine(Process):
                             self.draw_mem_end(v)
                         elif self._mode == MODE_DRAW_CELL:
                             self.draw_cell_start(v)
-                            print('dcs')
-                            print(len(self._layers))
+                        # Counting mode
+                        elif self._mode == MODE_FILL_CELL:
+                            self.fill_cell(v)
                     elif k == MOUSEUP:
                         if self._mode == MODE_DRAW_CELL:
                             self.draw_cell_end()
                     elif k == MOUSEPOS:
                         if self._mode == MODE_DRAW_CELL:
-                            self.draw_cell_cursor(v)
                             if self._is_drawing:
                                 self.draw_cell_continue(v)
                     # Keyboard events

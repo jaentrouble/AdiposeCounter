@@ -142,7 +142,8 @@ class Console(Process):
         self.frame_fill.grid(column=1, row=1, sticky=(tk.W, tk.S))
         self.button_fill_cell = ttk.Button(self.frame_fill,
                                            text='Fill Cell',
-                                           command=button_fill_cell_f)
+                                           command=partial(button_fill_cell_f,
+                                           q=self._to_EngineQ))
         self.button_fill_cell.grid(column=0, row=0, sticky=(tk.S))
         
         # Configure Bottom-Right Save menu ####################################
@@ -269,7 +270,8 @@ class Console(Process):
                     self._draw_mode_var.set('Draw membrane\nUndo:z\nStop:Enter\
                         \nPress Apply when finished')
                 elif k == MODE_DRAW_CELL:
-                    self._draw_mode_var.set('Not implemented DRAW_CELL info')
+                    self._draw_mode_var.set('Erase membrane\nUndo:z\
+                        \nPress Apply when finished\n*Recommend applying every time')
                 elif k == MODE_NONE:
                     self._draw_mode_var.set(self._default_draw_mode_str)
         self.root.after(16, self.update)
