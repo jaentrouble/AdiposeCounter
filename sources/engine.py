@@ -9,6 +9,7 @@ from pygame.time import Clock
 
 #TODO: implement Draw_cell main part
 #TODO: Should turn mode to None when click 'Set'
+#TODO: make cursor with pygame on Viewer not here.
 
 class Engine(Process):
     """
@@ -39,9 +40,8 @@ class Engine(Process):
         #TODO: Use different list for cell count layers to prevent merging with
         #      Cell-Membrane layers
         self._layers = []
-        # Cursor should act independently, but for simplicity, 
-        # use same machanism
-        self._cursor = [] 
+        # (Color_of_cursor(R,G,B), rr, cc) For speed
+        self._cursor = None
         # Modes related to drawings
         self._is_drawing = False
         self._line_start_pos = None
@@ -146,6 +146,7 @@ class Engine(Process):
         print(ratio)
         self._mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
         self.mask = self._mask_bool * CELL
+        self._mode = None
         self._updated = True
     
     def put_image(self):
@@ -154,9 +155,9 @@ class Engine(Process):
             for c, m in self._layers:
                 np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
                 np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
-            for c, m in self._cursor:
-                np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
-                np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
+            if self._cursor != None :
+                c, rr, cc = self._cursor
+                tmp_mask[rr,cc] = c
             self._imageQ.put(tmp_mask)
         else:
             self._imageQ.put(self.image)
@@ -246,12 +247,25 @@ class Engine(Process):
     def draw_cell_cursor(self, pos):
         start = (pos[0]-2,pos[1]-2)
         rr, cc = draw.rectangle_perimeter(start, extent=(5,5), shape=self.shape)
-        if len(self._cursor) == 0:
-            self._cursor.append((CURSOR,
-                                 np.zeros((self.shape[0],self.shape[1],1),
-                                          dtype=np.bool)))
-        self._cursor[0][1].fill(False)
-        self._cursor[0][1][rr,cc] = True
+        self._cursor = (CURSOR, rr, cc)
+        self._updated = True
+
+    def draw_cell_start(self, pos):
+        new_layer = np.zeros((self.shape[0],self.shape[1],1),
+                             dtype=np.bool)
+        color = CELL
+        new_layer[pos[0]-2:pos[0]+3,pos[1]-2:pos[1]+3] = True
+        self._layers.append((color, new_layer))
+        self._is_drawing = True
+        self._updated = True
+
+    def draw_cell_continue(self, pos):
+        _, last_layer = self._layers[-1]
+        last_layer[pos[0]-2:pos[0]+3,pos[1]-2:pos[1]+3] = True
+        self._updated = True
+
+    def draw_cell_end(self):
+        self._is_drawing = False
         self._updated = True
 
     def run(self):
@@ -314,9 +328,18 @@ class Engine(Process):
                             self.draw_mem_start(v)
                         elif self._mode == MODE_DRAW_MEM and self._is_drawing:
                             self.draw_mem_end(v)
+                        elif self._mode == MODE_DRAW_CELL:
+                            self.draw_cell_start(v)
+                            print('dcs')
+                            print(len(self._layers))
+                    elif k == MOUSEUP:
+                        if self._mode == MODE_DRAW_CELL:
+                            self.draw_cell_end()
                     elif k == MOUSEPOS:
                         if self._mode == MODE_DRAW_CELL:
                             self.draw_cell_cursor(v)
+                            if self._is_drawing:
+                                self.draw_cell_continue(v)
                     # Keyboard events
                     elif k == K_Z:
                         self.draw_undo()

@@ -10,7 +10,7 @@ class Viewer(Process) :
     """
     def __init__(self, width:int, height:int, event_queue:Queue,
                  image_queue:Queue, etc_queue:Queue, termQ:Queue,
-                 fps=60):
+                 fps=30):
         """
         Initialize Viewer
 
@@ -68,13 +68,12 @@ class Viewer(Process) :
                         self._event_queue.put({K_Z:None})
                     elif event.key == pygame.K_RETURN:
                         self._event_queue.put({K_ENTER:None})
-
-
-
             # Mouse events
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if pygame.mouse.get_pressed()[0]:
                         self._event_queue.put({MOUSEDOWN:pygame.mouse.get_pos()})
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    self._event_queue.put({MOUSEUP:None})
 
             if self._put_mouse_pos:
                 self._event_queue.put({MOUSEPOS:pygame.mouse.get_pos()})
@@ -99,13 +98,11 @@ class Viewer(Process) :
         pygame.quit()
 
 
-
-
-# Constants ###################################################################
-
-
-
-
+class Cursor(pygame.sprite.DirtySprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface([7,7])
+        self.image.fill(CURSOR)
 
 #testing
 if __name__ == '__main__':

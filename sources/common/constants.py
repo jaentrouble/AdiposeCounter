@@ -35,7 +35,8 @@ TERMINATE = -1
 
 # Viewer Constants ############################################################
 MOUSEDOWN = 0
-MOUSEPOS = 1
+MOUSEUP = 1
+MOUSEPOS = 2
 
 MOUSEPOS_ON = 10
 MOUSEPOS_OFF = 11
