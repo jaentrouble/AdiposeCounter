@@ -37,6 +37,7 @@ class Console(Process):
         self._img_name_var = tk.StringVar(value='No image loaded')
         self._default_draw_mode_str = 'Click Buttons to draw'
         self._draw_mode_var = tk.StringVar(value=self._default_draw_mode_str)
+        self._fill_ratio_var = tk.DoubleVar(value=DEFAULT_MP_RATIO)
 
         # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
@@ -140,11 +141,19 @@ class Console(Process):
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_fill.grid(column=1, row=1, sticky=(tk.W, tk.S))
+        self.label_fill_ratio = ttk.Label(self.frame_fill,
+                                         textvariable=self._fill_ratio_var)
+        self.label_fill_ratio.grid(column=0, row=0)
+        self.button_fill_ratio = ttk.Button(self.frame_fill,
+                                            text='Set Length',
+                                            command=partial(button_fill_ratio_f,
+                                            q=self._to_EngineQ))
+        self.button_fill_ratio.grid(column=0, row=1, sticky=(tk.N))
         self.button_fill_cell = ttk.Button(self.frame_fill,
                                            text='Fill Cell',
                                            command=partial(button_fill_cell_f,
                                            q=self._to_EngineQ))
-        self.button_fill_cell.grid(column=0, row=0, sticky=(tk.S))
+        self.button_fill_cell.grid(column=0, row=2, sticky=(tk.S))
         
         # Configure Bottom-Right Save menu ####################################
         self.frame_save = ttk.Frame(self.root, padding='5 5 5 5')
@@ -157,10 +166,10 @@ class Console(Process):
         self.scroll_save.grid(column=1, row=0, sticky=(tk.E, tk.N, tk.S))
         self.list_save.configure(yscrollcommand=self.scroll_save.set)
         self.button_save = ttk.Button(self.frame_save, text='Save',
-                                      command=button_save_f)
+                                      command=self.button_save_f)
         self.button_save.grid(column=2, row=1, sticky=(tk.E, tk.S))
         self.button_delete = ttk.Button(self.frame_save,
-                                        text='Delete', command=button_delete_f)
+                                        text='Delete', command=self.button_delete_f)
         self.button_delete.grid(column=2, row=0, sticky=(tk.S))
 
         # Set weights of frames ###############################################
@@ -227,7 +236,9 @@ class Console(Process):
             self._image_name_list = []
             self._image_idx = 0
             for (dirpath, dirnames, filenames) in os.walk(self._image_folder):
-                self._image_name_list.extend(filenames)
+                for f in filenames:
+                    if f.endswith(IMAGE_FORMATS):
+                        self._image_name_list.append(f)
             self._to_EngineQ.put({
                 NEWIMAGE:os.path.join(self._image_folder,
                         self._image_name_list[self._image_idx])
@@ -235,28 +246,50 @@ class Console(Process):
             self._img_name_var.set(self._image_name_list[self._image_idx])
 
     def button_next_f(self):
-        if len(self._image_name_list) > 0 :
-            self._image_idx = (self._image_idx+1)%len(self._image_name_list)
-            self._to_EngineQ.put({
-                NEWIMAGE:os.path.join(self._image_folder,
-                        self._image_name_list[self._image_idx])
-            })
-            self._img_name_var.set(self._image_name_list[self._image_idx])
+        answer = messagebox.askyesno(message='All unsaved values will disappear.\
+            \nContinue?')
+        if answer:
+            if len(self._image_name_list) > 0 :
+                self._image_idx = (self._image_idx+1)%len(self._image_name_list)
+                self._to_EngineQ.put({
+                    NEWIMAGE:os.path.join(self._image_folder,
+                            self._image_name_list[self._image_idx])
+                })
+                self._img_name_var.set(self._image_name_list[self._image_idx])
 
     def button_prev_f(self):
-        if len(self._image_name_list) > 0 :
-            self._image_idx = (self._image_idx-1)%len(self._image_name_list)
-            self._to_EngineQ.put({
-                NEWIMAGE:os.path.join(self._image_folder,
-                        self._image_name_list[self._image_idx])
-            })
-            self._img_name_var.set(self._image_name_list[self._image_idx])
+        answer = messagebox.askyesno(message='All unsaved values will disappear.\
+            \nContinue?')
+        if answer:
+            if len(self._image_name_list) > 0 :
+                self._image_idx = (self._image_idx-1)%len(self._image_name_list)
+                self._to_EngineQ.put({
+                    NEWIMAGE:os.path.join(self._image_folder,
+                            self._image_name_list[self._image_idx])
+                })
+                self._img_name_var.set(self._image_name_list[self._image_idx])
 
     def button_draw_cancel_f(self):
         answer = messagebox.askyesno(message='This will delete all unapplied drawings.\
             \nContinue?')
         if answer:
             self._to_EngineQ.put({DRAW_CANCEL:None})
+
+    def button_delete_f(self):
+        answer = messagebox.askyesno(message='Delete selected Cell?')
+        if answer:
+            self._to_EngineQ.put({FILL_DELETE:self.list_save.curselection()})
+
+    def button_save_f(self):
+        save_dir = filedialog.askopenfilename(title='Select Excel File',
+                    filetypes=[('Excel files','*.xlsx')])
+        print(save_dir)
+        if save_dir == '':
+            pass
+        else:
+            self._to_EngineQ.put({FILL_SAVE:(save_dir, 
+                                self._image_name_list[self._image_idx])})
+
 
     def update(self):
         if not self._to_ConsoleQ.empty():
@@ -267,11 +300,19 @@ class Console(Process):
                 elif k == SET_CELL:
                     self.cell_color = tuple(v)
                 elif k == MODE_DRAW_MEM:
-                    self._draw_mode_var.set('Draw membrane\nUndo:z\nStop:Enter\
-                        \nPress Apply when finished')
+                    self._draw_mode_var.set('Draw membrane\nUndo:z\nStop:'\
+                                'Right click\nPress Apply(Enter) when finished')
                 elif k == MODE_DRAW_CELL:
-                    self._draw_mode_var.set('Erase membrane\nUndo:z\
-                        \nPress Apply when finished\n*Recommend applying every time')
+                    self._draw_mode_var.set('Erase membrane\nUndo:z'
+                        '\nPress Apply(Enter) when finished\n*Recommend applying every time')
                 elif k == MODE_NONE:
                     self._draw_mode_var.set(self._default_draw_mode_str)
+                elif k == MODE_FILL_CELL:
+                    self._draw_mode_var.set('Click to fill a cell')
+                elif k == MODE_FILL_MP_RATIO:
+                    self._draw_mode_var.set('Set micrometer to pixel ratio')
+                elif k == FILL_MP_RATIO:
+                    self._fill_ratio_var.set(v)
+                elif k == FILL_LIST:
+                    self.list_items = v
         self.root.after(16, self.update)

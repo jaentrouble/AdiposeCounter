@@ -92,6 +92,8 @@ class Viewer(Process) :
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if pygame.mouse.get_pressed()[0]:
                         self._event_queue.put({MOUSEDOWN:pygame.mouse.get_pos()})
+                    elif pygame.mouse.get_pressed()[2]:
+                        self._event_queue.put({MOUSEDOWN_RIGHT:pygame.mouse.get_pos()})
                 elif event.type == pygame.MOUSEBUTTONUP:
                     self._event_queue.put({MOUSEUP:None})
 

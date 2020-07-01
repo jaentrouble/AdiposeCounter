@@ -3,11 +3,15 @@ from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
 from skimage import draw, transform
+import openpyxl as xl
 
 # To limit loop rate
 from pygame.time import Clock
 
-#TODO: Implement area calculation
+#TODO: Implement setting micrometer
+#TODO: Tell if it was saved successfully
+#TODO: Implement Saving mask files
+#TODO: Implement Making data for Machine learning
 
 class Engine(Process):
     """
@@ -38,11 +42,17 @@ class Engine(Process):
         self._layers = []
         self._cell_layers = []
         self._cell_counts = []
+        self._always_on_layers = []
+        #TODO: Delete after check
         # (Color_of_cursor(R,G,B), rr, cc) For speed
-        self._cursor = None
+        # self._cursor = None
         # Modes related to drawings
         self._is_drawing = False
         self._line_start_pos = None
+        # Modes related to filling
+        # Ratio = (micrometer / pixel)**2  -> Because it's area ratio
+        self._mp_ratio = DEFAULT_MP_RATIO
+        self._mp_ratio_micrometer = DEFAULT_MP_MICRO
 
     @property
     def image(self):
@@ -114,11 +124,23 @@ class Engine(Process):
         self._mask_mode = mask_mode
         self._updated = True
 
+    def reset(self):
+        self._layers = []
+        self._cell_layers = []
+        self._cell_counts = []
+        self._always_on_layers = []
+        self._is_drawing = False
+        self._line_start_pos = None
+        self._mode = None
+        self._mask_mode = False
+        self._updated = True
+
     def load_image(self, path:str):
         #TODO: Resize image?
         im = Image.open(path)
         self.image = transform.resize(np.asarray(im).swapaxes(0,1),(800,600))*255
         self.set_empty_mask()
+        self.reset()
         self._updated = True
 
     def set_empty_mask(self):
@@ -146,31 +168,49 @@ class Engine(Process):
         print(ratio)
         mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
         self.mask = mask_bool * CELL
+        self._tmp_mask = self.mask
         self._mode = None
         self._layers = []
         self._updated = True
     
     def put_image(self):
         if self._mask_mode:
-            tmp_mask = self.mask
-            for c, m in self._layers:
-                np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
-                np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
-            for c, m in self._cell_layers:
-                np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
-                np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
-            if self._cursor != None :
-                c, rr, cc = self._cursor
-                tmp_mask[rr,cc] = c
-            self._imageQ.put(tmp_mask)
+            # To make drawing cell mode faster, fix other layers temporally
+            if self._mode == MODE_DRAW_CELL and self._is_drawing:
+                tmp_draw_mask = self._tmp_mask.copy()
+                for c, m in self._layers:
+                    np.multiply(tmp_draw_mask, np.logical_not(m), out=tmp_draw_mask)
+                    np.add(tmp_draw_mask, m * np.array(c,np.uint8), out=tmp_draw_mask)
+                self._imageQ.put(tmp_draw_mask)
+            else :
+                self._tmp_mask = self.mask
+                for c, m in self._layers:
+                    np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
+                    np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+                for c, m in self._cell_layers:
+                    np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
+                    np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+                for c, m in self._always_on_layers:
+                    np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
+                    np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+                self._imageQ.put(self._tmp_mask)
         else:
-            self._imageQ.put(self.image)
+            tmp_image = self.image
+            for c, m in self._always_on_layers:
+                np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
+                np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
+            self._imageQ.put(tmp_image)
 
     def put_mode(self):
         if self._mode != None:
             self._to_ConsoleQ.put({self._mode:None})
         else:
             self._to_ConsoleQ.put({MODE_NONE:None})
+        self._to_ConsoleQ.put({FILL_MP_RATIO:self._mp_ratio})
+
+    def put_ratio_list(self):
+        area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
+        self._to_ConsoleQ.put({FILL_LIST:area_list})
 
     def default_mode(self):
         self._mode = None
@@ -214,7 +254,6 @@ class Engine(Process):
         new_layer[rr, cc] = True
         self._layers.append((color, new_layer))
         self._line_start_pos = None
-        # self._is_drawing = False
         self.draw_mem_start(pos)
         self._updated = True
         
@@ -238,7 +277,6 @@ class Engine(Process):
         self._layers = []
         self.mask = tmp_mask
         self._updated = True
-        self._mode = None
 
     def draw_undo(self):
         if len(self._layers)>0 :
@@ -262,11 +300,12 @@ class Engine(Process):
         self._is_drawing = False
         self._updated = True
 
-    def draw_cell_cursor(self, pos):
-        start = (pos[0]-2,pos[1]-2)
-        rr, cc = draw.rectangle_perimeter(start, extent=(5,5), shape=self.shape)
-        self._cursor = (CURSOR, rr, cc)
-        self._updated = True
+    #TODO: Delete after check
+    # def draw_cell_cursor(self, pos):
+    #     start = (pos[0]-2,pos[1]-2)
+    #     rr, cc = draw.rectangle_perimeter(start, extent=(5,5), shape=self.shape)
+    #     self._cursor = (CURSOR, rr, cc)
+    #     self._updated = True
 
     def draw_cell_start(self, pos):
         new_layer = np.zeros((self.shape[0],self.shape[1],1),
@@ -321,6 +360,51 @@ class Engine(Process):
         self._cell_counts.append(pix_count)
         print(pix_count)
         self._updated = True
+    
+    def fill_undo(self):
+        if len(self._cell_layers) > 0: 
+            self._cell_layers.pop()
+            self._cell_counts.pop()
+            self._updated = True
+
+    def fill_ratio_start(self, pos):
+        new_layer = np.zeros((self.shape[0],self.shape[1],1),
+                             dtype=np.bool)
+        color = LINE_START
+        x, y = pos
+        new_layer[x-2:x+3, y-2:y+3] = True
+        self._always_on_layers.append((color, new_layer))
+        self._mp_ratio_start_pos = pos
+        self._is_drawing = True
+        self._updated = True
+
+    def fill_ratio_end(self, pos):
+        pixel_dist = np.sqrt(np.sum(np.subtract(self._mp_ratio_start_pos,pos)**2))
+        self._mp_ratio = (self._mp_ratio_micrometer / pixel_dist)**2
+        self._always_on_layers.pop()
+        self._is_drawing = False
+        self._mp_ratio_start_pos = None
+        self._mode = None
+        self._updated = True
+        print(self._mp_ratio)
+
+    def fill_delete(self, indices):
+        for idx in indices:
+            self._cell_layers.pop(idx)
+            self._cell_counts.pop(idx)
+        self._updated = True
+
+    def fill_save(self, excel_dir, image_name):
+        wb = xl.load_workbook(excel_dir)
+        ws = wb.worksheets[0]
+        row = 1
+        while ws.cell(row, 1).value != None:
+            row += 1
+        for area in self._cell_counts:
+            ws.cell(row, 1).value = area * self._mp_ratio
+            ws.cell(row, 2).value = image_name
+            row += 1
+        wb.save(excel_dir)
 
     def run(self):
         mainloop = True
@@ -362,9 +446,16 @@ class Engine(Process):
                     elif k == DRAW_CANCEL:
                         self.draw_cancel()
                     #Counting modes
-                    #TODO: Add a way to stop this mode
                     elif k == FILL_CELL:
                         self._mode = MODE_FILL_CELL
+                        self.draw_apply()
+                    elif k == FILL_MP_RATIO:
+                        self._mode = MODE_FILL_MP_RATIO
+                        self._updated = True
+                    elif k == FILL_DELETE:
+                        self.fill_delete(v)
+                    elif k == FILL_SAVE:
+                        self.fill_save(*v)
 
             if not self._eventQ.empty():
                 q = self._eventQ.get()
@@ -385,15 +476,23 @@ class Engine(Process):
                             print(self.cell_color)
                             self._to_ConsoleQ.put({SET_CELL:self.cell_color})
                         # Drawing mode
-                        elif self._mode == MODE_DRAW_MEM and not self._is_drawing:
-                            self.draw_mem_start(v)
-                        elif self._mode == MODE_DRAW_MEM and self._is_drawing:
-                            self.draw_mem_end(v)
+                        elif self._mode == MODE_DRAW_MEM:
+                            if not self._is_drawing:
+                                self.draw_mem_start(v)
+                            else:
+                                self.draw_mem_end(v)
                         elif self._mode == MODE_DRAW_CELL:
                             self.draw_cell_start(v)
                         # Counting mode
                         elif self._mode == MODE_FILL_CELL:
                             self.fill_cell(v)
+                        elif self._mode == MODE_FILL_MP_RATIO:
+                            if not self._is_drawing:
+                                self.fill_ratio_start(v)
+                            else :
+                                self.fill_ratio_end(v)
+                    elif k == MOUSEDOWN_RIGHT:
+                        self.draw_stop()
                     elif k == MOUSEUP:
                         if self._mode == MODE_DRAW_CELL:
                             self.draw_cell_end()
@@ -403,11 +502,18 @@ class Engine(Process):
                                 self.draw_cell_continue(v)
                     # Keyboard events
                     elif k == K_Z:
-                        self.draw_undo()
+                        if self._mode == MODE_DRAW_CELL or\
+                            self._mode == MODE_DRAW_MEM:
+                            self.draw_undo()
+                        elif self._mode == MODE_FILL_CELL:
+                            self.fill_undo()
                     elif k == K_ENTER:
-                        self.draw_stop()
+                        if self._mode == MODE_DRAW_MEM or\
+                        self._mode == MODE_DRAW_CELL:
+                            self.draw_apply()
 
             if self._updated:
                 self.put_image()
                 self.put_mode()
+                self.put_ratio_list()
                 self._updated = False

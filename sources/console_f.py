@@ -49,13 +49,19 @@ def button_draw_apply_f(q):
         q.put({DRAW_OFF:None})
 
 # Functions for Bottom-Middle Fill menu
+def button_fill_ratio_f(q):
+    q.put({FILL_MP_RATIO:None})
+
 def button_fill_cell_f(q):
-    #TODO: Add checking message box
-    q.put({FILL_CELL:None})
+    answer = messagebox.askyesno(message='This will Apply all drawn layers\
+        \nContinue?')
+    if answer:
+        q.put({FILL_CELL:None})
 
 # Functions for Bottom-Right Save menu
-def button_save_f():
-    print('button_save_f not implemented yet')
+# def button_save_f():
+#     print('button_save_f not implemented yet')
 
-def button_delete_f():
-    print('button_delete_f not implemented yet')
+# Implemented in Console method
+# def button_delete_f():
+#     print('button_delete_f not implemented yet')
