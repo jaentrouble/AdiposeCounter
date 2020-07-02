@@ -243,7 +243,6 @@ class Console(Process):
 
     def button_open_f(self):
         dirname = filedialog.askdirectory()
-        print(dirname)
         if dirname == '':
             pass
         else:
@@ -298,12 +297,12 @@ class Console(Process):
     def button_save_f(self):
         save_dir = filedialog.askopenfilename(title='Select Excel File',
                     filetypes=[('Excel files','*.xlsx')])
-        print(save_dir)
         if save_dir == '':
             pass
         else:
             self._to_EngineQ.put({FILL_SAVE:(save_dir, 
-                                self._image_name_list[self._image_idx])})
+                                self._image_name_list[self._image_idx],
+                                self._image_folder)})
 
     def spinbox_fill_micro_change(self, *args):
         val = self._micro_var.get()
@@ -318,6 +317,9 @@ class Console(Process):
             self._micro_var.set(DEFAULT_MP_MICRO)
             val = DEFAULT_MP_MICRO
         self._to_EngineQ.put({FILL_MICRO:int(val)})
+
+    def message_box(self, string):
+        messagebox.showinfo(message=string)
 
     def update(self):
         if not self._to_ConsoleQ.empty():
@@ -343,4 +345,6 @@ class Console(Process):
                     self._fill_ratio_var.set(v)
                 elif k == FILL_LIST:
                     self.list_items = v
+                elif k == MESSAGE_BOX:
+                    self.message_box(v)
         self.root.after(16, self.update)

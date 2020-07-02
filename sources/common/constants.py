@@ -56,6 +56,8 @@ MOUSEPOS_OFF = 502
 BIG_CURSOR_ON = 503
 BIG_CURSOR_OFF = 504
 
+MESSAGE_BOX = 601
+
 # Use same numbers as pygame.K_* + 1000
 K_Z = 1122
 K_ENTER = 1013

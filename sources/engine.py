@@ -4,13 +4,11 @@ from PIL import Image
 from .common.constants import *
 from skimage import draw
 import openpyxl as xl
-import time
+import os
 
 # To limit loop rate
 from pygame.time import Clock
 
-#TODO: Tell if it was saved successfully
-#TODO: Implement Saving mask files
 #TODO: Implement Making data for Machine learning
 
 class Engine(Process):
@@ -154,7 +152,6 @@ class Engine(Process):
         
         ** This will reset all layers
         """
-        print('set new mask')
         ratio /=100
         dist_to_memcolor=((self.image.astype(np.int) - self.mem_color)**2).sum(
                                                         axis=2,
@@ -242,7 +239,6 @@ class Engine(Process):
         """
         Draw the line and start next line
         """
-        st = time.time()
         _, last_layer = self._layers.pop()
         new_layer = np.zeros_like(last_layer)
         color = MEMBRANE
@@ -256,7 +252,6 @@ class Engine(Process):
         self.draw_mem_start(pos)
         self._updated = True
         print('drawing time:')
-        print(time.time()-st)
         
     def draw_stop(self):
         """
@@ -353,7 +348,6 @@ class Engine(Process):
                 x += 1
         self._cell_layers.append((COUNT, new_layer))
         self._cell_counts.append(pix_count)
-        print(pix_count)
         self._updated = True
     
     def fill_undo(self):
@@ -388,17 +382,39 @@ class Engine(Process):
             self._cell_counts.pop(idx)
         self._updated = True
 
-    def fill_save(self, excel_dir, image_name):
-        wb = xl.load_workbook(excel_dir)
+    def fill_save(self, excel_dir, image_name, image_folder):
+        try :
+            wb = xl.load_workbook(excel_dir)
+        except :
+            self._to_ConsoleQ.put({MESSAGE_BOX:'Cannot open Workbook!'})
+            return
         ws = wb.worksheets[0]
-        row = 1
-        while ws.cell(row, 1).value != None:
-            row += 1
+        row, col = 1, 1
+        while ws.cell(row, col).value != None:
+            col += 1
         for area in self._cell_counts:
-            ws.cell(row, 1).value = area * self._mp_ratio
-            ws.cell(row, 2).value = image_name
+            ws.cell(row, col).value = area * self._mp_ratio
+            ws.cell(row, col+1).value = image_name
             row += 1
-        wb.save(excel_dir)
+        try:
+            wb.save(excel_dir)
+        except:
+            self._to_ConsoleQ.put({MESSAGE_BOX:'Failed to Save'})
+            return
+        else:
+            self._to_ConsoleQ.put({MESSAGE_BOX:'Saved Successfully.'\
+                '\nDon\'t forget to check.'})
+        # Saving the mask image
+        mask_save = Image.fromarray(self._tmp_mask.swapaxes(0,1))
+        new_name = image_name + '_mask.png'
+        save_folder = os.path.join(image_folder,'save')
+        if not os.path.exists(save_folder):
+            os.mkdir(save_folder)
+        filename = os.path.join(save_folder, new_name)
+        print(filename)
+        mask_save.save(filename)
+        print('saved')
+
 
     def run(self):
         mainloop = True
@@ -460,17 +476,13 @@ class Engine(Process):
                     if k == MOUSEDOWN:
                         # v : mouse pos which came from Viewer
                         # Set color
-                        print('clicked')
-                        print(len(self._layers))
                         if self._mode == MODE_SET_MEM:
                             self.set_mem_color(v)
-                            print(self.mem_color)
                             self._color_mode = None
                             self._to_ConsoleQ.put({SET_MEM:self.mem_color})
                         elif self._mode == MODE_SET_CELL:
                             self.set_cell_color(v)
                             self._color_mode = None
-                            print(self.cell_color)
                             self._to_ConsoleQ.put({SET_CELL:self.cell_color})
                         # Drawing mode
                         elif self._mode == MODE_DRAW_MEM:
