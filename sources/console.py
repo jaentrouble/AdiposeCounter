@@ -196,7 +196,7 @@ class Console(Process):
 
     def run(self):
         self.initiate()
-        self.button_open_f()
+        self.button_open_f(ask=False)
         self.root.after(16, self.update)
         self.root.mainloop()
         self._termQ.put(TERMINATE)
@@ -241,7 +241,11 @@ class Console(Process):
         self._list_items = list_of_items.copy()
         self._list_var.set(self._list_items)
 
-    def button_open_f(self):
+    def button_open_f(self, ask=True):
+        if ask:
+            answer = messagebox.askyesno(message='This will reset everything.'\
+                                                '\n Continue?')
+            if not answer: return
         dirname = filedialog.askdirectory()
         if dirname == '':
             pass

@@ -9,7 +9,7 @@ import os
 # To limit loop rate
 from pygame.time import Clock
 
-#TODO: Implement Making data for Machine learning
+#TODO: Make 'change_mode' to deal with sudden mode change
 
 class Engine(Process):
     """
@@ -119,6 +119,27 @@ class Engine(Process):
         self._mask_mode = mask_mode
         self._updated = True
 
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode):
+        if self._mode == MODE_DRAW_MEM:
+            self.draw_stop()
+        elif self._mode == MODE_FILL_MP_RATIO and self._is_drawing:
+            self.fill_ratio_cancel()
+        self._mode = mode
+        self._updated = True
+
+    # def mode_change(self):
+    #     if self._mode == MODE_DRAW_MEM:
+    #         self.draw_stop()
+    #     elif self._mode == MODE_FILL_MP_RATIO and self._is_drawing:
+    #         self.fill_ratio_cancel()
+    #     self._mode = None
+    #     self._updated = True
+
     def reset(self):
         self._layers = []
         self._cell_layers = []
@@ -126,7 +147,7 @@ class Engine(Process):
         self._always_on_layers = []
         self._is_drawing = False
         self._line_start_pos = None
-        self._mode = None
+        self.mode = None
         self._mask_mode = False
         self._updated = True
 
@@ -162,14 +183,14 @@ class Engine(Process):
         mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
         self.mask = mask_bool * CELL
         self._tmp_mask = self.mask
-        self._mode = None
+        self.mode = None
         self._layers = []
         self._updated = True
     
     def put_image(self):
         if self._mask_mode:
             # To make drawing cell mode faster, fix other layers temporally
-            if self._mode == MODE_DRAW_CELL and self._is_drawing:
+            if self.mode == MODE_DRAW_CELL and self._is_drawing:
                 tmp_draw_mask = self._tmp_mask.copy()
                 for c, m in self._layers:
                     np.multiply(tmp_draw_mask, np.logical_not(m), out=tmp_draw_mask)
@@ -195,8 +216,8 @@ class Engine(Process):
             self._imageQ.put(tmp_image)
 
     def put_mode(self):
-        if self._mode != None:
-            self._to_ConsoleQ.put({self._mode:None})
+        if self.mode != None:
+            self._to_ConsoleQ.put({self.mode:None})
         else:
             self._to_ConsoleQ.put({MODE_NONE:None})
         self._to_ConsoleQ.put({FILL_MP_RATIO:self._mp_ratio})
@@ -205,10 +226,6 @@ class Engine(Process):
         self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
-
-    def default_mode(self):
-        self._mode = None
-        self._updated = True
 
     def set_mem_color(self, pos):
         x,y = pos
@@ -283,7 +300,7 @@ class Engine(Process):
         self._layers = []
         self._is_drawing = False
         self._line_start_pos = None
-        self._mode = None
+        self.mode = None
         self._updated = True
 
     def draw_cell_mode_init(self):
@@ -371,7 +388,13 @@ class Engine(Process):
         self._always_on_layers.pop()
         self._is_drawing = False
         self._mp_ratio_start_pos = None
-        self._mode = None
+        self.mode = None
+        self._updated = True
+    
+    def fill_ratio_cancel(self):
+        self._mp_ratio_start_pos = None
+        self._is_drawing = False
+        self._always_on_layers = []
         self._updated = True
 
     def fill_delete(self, indices):
@@ -433,19 +456,18 @@ class Engine(Process):
                         self.mask_mode = True
                     # Set colors & ratio
                     elif k == SET_MEM:
-                        self._mode = MODE_SET_MEM
+                        self.mode = MODE_SET_MEM
                     elif k == SET_CELL:
-                        self._mode = MODE_SET_CELL
+                        self.mode = MODE_SET_CELL
                     elif k == SET_RATIO:
-                        self.default_mode()
                         self.mask_mode = True
                         self.set_new_mask(v)
                     #Drawing modes
                     elif k == DRAW_MEM:
-                        self._mode = MODE_DRAW_MEM
+                        self.mode = MODE_DRAW_MEM
                         self._updated = True
                     elif k == DRAW_CELL:
-                        self._mode = MODE_DRAW_CELL
+                        self.mode = MODE_DRAW_CELL
                         self.draw_cell_mode_init()
                     elif k == DRAW_OFF:
                         self.draw_apply()
@@ -453,10 +475,10 @@ class Engine(Process):
                         self.draw_cancel()
                     #Counting modes
                     elif k == FILL_CELL:
-                        self._mode = MODE_FILL_CELL
+                        self.mode = MODE_FILL_CELL
                         self.draw_apply()
                     elif k == FILL_MP_RATIO:
-                        self._mode = MODE_FILL_MP_RATIO
+                        self.mode = MODE_FILL_MP_RATIO
                         self._updated = True
                     elif k == FILL_DELETE:
                         self.fill_delete(v)
@@ -472,26 +494,26 @@ class Engine(Process):
                     if k == MOUSEDOWN:
                         # v : mouse pos which came from Viewer
                         # Set color
-                        if self._mode == MODE_SET_MEM:
+                        if self.mode == MODE_SET_MEM:
                             self.set_mem_color(v)
                             self._color_mode = None
                             self._to_ConsoleQ.put({SET_MEM:self.mem_color})
-                        elif self._mode == MODE_SET_CELL:
+                        elif self.mode == MODE_SET_CELL:
                             self.set_cell_color(v)
                             self._color_mode = None
                             self._to_ConsoleQ.put({SET_CELL:self.cell_color})
                         # Drawing mode
-                        elif self._mode == MODE_DRAW_MEM:
+                        elif self.mode == MODE_DRAW_MEM:
                             if not self._is_drawing:
                                 self.draw_mem_start(v)
                             else:
                                 self.draw_mem_end(v)
-                        elif self._mode == MODE_DRAW_CELL:
+                        elif self.mode == MODE_DRAW_CELL:
                             self.draw_cell_start(v)
                         # Counting mode
-                        elif self._mode == MODE_FILL_CELL:
+                        elif self.mode == MODE_FILL_CELL:
                             self.fill_cell(v)
-                        elif self._mode == MODE_FILL_MP_RATIO:
+                        elif self.mode == MODE_FILL_MP_RATIO:
                             if not self._is_drawing:
                                 self.fill_ratio_start(v)
                             else :
@@ -499,22 +521,22 @@ class Engine(Process):
                     elif k == MOUSEDOWN_RIGHT:
                         self.draw_stop()
                     elif k == MOUSEUP:
-                        if self._mode == MODE_DRAW_CELL:
+                        if self.mode == MODE_DRAW_CELL:
                             self.draw_cell_end()
                     elif k == MOUSEPOS:
-                        if self._mode == MODE_DRAW_CELL:
+                        if self.mode == MODE_DRAW_CELL:
                             if self._is_drawing:
                                 self.draw_cell_continue(v)
                     # Keyboard events
                     elif k == K_Z:
-                        if self._mode == MODE_DRAW_CELL or\
-                            self._mode == MODE_DRAW_MEM:
+                        if self.mode == MODE_DRAW_CELL or\
+                            self.mode == MODE_DRAW_MEM:
                             self.draw_undo()
-                        elif self._mode == MODE_FILL_CELL:
+                        elif self.mode == MODE_FILL_CELL:
                             self.fill_undo()
                     elif k == K_ENTER:
-                        if self._mode == MODE_DRAW_MEM or\
-                        self._mode == MODE_DRAW_CELL:
+                        if self.mode == MODE_DRAW_MEM or\
+                        self.mode == MODE_DRAW_CELL:
                             self.draw_apply()
 
             if self._updated:
