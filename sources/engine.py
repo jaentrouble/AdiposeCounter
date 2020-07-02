@@ -3,7 +3,7 @@ from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
 from skimage import draw
-import openpyxl as xl
+from openpyxl import load_workbook
 import os
 
 # To limit loop rate
@@ -159,7 +159,6 @@ class Engine(Process):
         dist_to_cellcolor=((self.image.astype(np.int) - self.cell_color)**2).sum(
                                                         axis=2,
                                                         keepdims=True)
-        print(ratio)
         mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
         self.mask = mask_bool * CELL
         self._tmp_mask = self.mask
@@ -251,7 +250,6 @@ class Engine(Process):
         self._line_start_pos = None
         self.draw_mem_start(pos)
         self._updated = True
-        print('drawing time:')
         
     def draw_stop(self):
         """
@@ -384,7 +382,7 @@ class Engine(Process):
 
     def fill_save(self, excel_dir, image_name, image_folder):
         try :
-            wb = xl.load_workbook(excel_dir)
+            wb = load_workbook(excel_dir)
         except :
             self._to_ConsoleQ.put({MESSAGE_BOX:'Cannot open Workbook!'})
             return
@@ -411,9 +409,7 @@ class Engine(Process):
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
         filename = os.path.join(save_folder, new_name)
-        print(filename)
         mask_save.save(filename)
-        print('saved')
 
 
     def run(self):

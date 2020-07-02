@@ -1,11 +1,12 @@
 from sources.console import Console
 from sources.viewer import Viewer
 from sources.engine import Engine
-from multiprocessing import Queue, set_start_method
+from multiprocessing import Queue, set_start_method, freeze_support
 from sources.common.constants import *
 
 if __name__ == '__main__':
     set_start_method('spawn')
+    freeze_support()
     imgQ = Queue()
     evntQ = Queue()
     etcQ = Queue()
