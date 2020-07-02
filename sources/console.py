@@ -38,6 +38,7 @@ class Console(Process):
         self._default_draw_mode_str = 'Click Buttons to draw'
         self._draw_mode_var = tk.StringVar(value=self._default_draw_mode_str)
         self._fill_ratio_var = tk.DoubleVar(value=DEFAULT_MP_RATIO)
+        self._micro_var = tk.StringVar(value=DEFAULT_MP_MICRO)
 
         # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
@@ -141,19 +142,33 @@ class Console(Process):
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_fill.grid(column=1, row=1, sticky=(tk.W, tk.S))
+        #TODO: Implement spinbox & Validate command
+        self.label_fill_warning = ttk.Label(self.frame_fill,
+                    text='Values : 1 ~ 1000')
+        self.label_fill_warning.grid(column=0, row=0, columnspan=2)
+        self.label_fill_micro = ttk.Label(self.frame_fill,
+                                          text='Standard μm :')
+        self.label_fill_micro.grid(column=0,row=1)
+        self.spinbox_fill_micro = ttk.Spinbox(self.frame_fill,
+                                              from_=1, to=1000,
+                                              increment=5, width=5,
+                                              textvariable=self._micro_var,
+                                              command=self.spinbox_fill_micro_change)
+        self.spinbox_fill_micro.bind('<Return>',self.spinbox_fill_micro_change)
+        self.spinbox_fill_micro.grid(column=1, row=1)
         self.label_fill_ratio = ttk.Label(self.frame_fill,
                                          textvariable=self._fill_ratio_var)
-        self.label_fill_ratio.grid(column=0, row=0)
+        self.label_fill_ratio.grid(column=0, row=2)
         self.button_fill_ratio = ttk.Button(self.frame_fill,
                                             text='Set Length',
                                             command=partial(button_fill_ratio_f,
                                             q=self._to_EngineQ))
-        self.button_fill_ratio.grid(column=0, row=1, sticky=(tk.N))
+        self.button_fill_ratio.grid(column=0, row=3, sticky=(tk.N))
         self.button_fill_cell = ttk.Button(self.frame_fill,
                                            text='Fill Cell',
                                            command=partial(button_fill_cell_f,
                                            q=self._to_EngineQ))
-        self.button_fill_cell.grid(column=0, row=2, sticky=(tk.S))
+        self.button_fill_cell.grid(column=0, row=4, sticky=(tk.S))
         
         # Configure Bottom-Right Save menu ####################################
         self.frame_save = ttk.Frame(self.root, padding='5 5 5 5')
@@ -290,6 +305,19 @@ class Console(Process):
             self._to_EngineQ.put({FILL_SAVE:(save_dir, 
                                 self._image_name_list[self._image_idx])})
 
+    def spinbox_fill_micro_change(self, *args):
+        val = self._micro_var.get()
+        if val.isdigit():
+            if int(val)>1000:
+                self._micro_var.set(1000)
+                val = 1000
+            elif int(val)<1:
+                self._micro_var.set(1)
+                val = 1
+        else :
+            self._micro_var.set(DEFAULT_MP_MICRO)
+            val = DEFAULT_MP_MICRO
+        self._to_EngineQ.put({FILL_MICRO:int(val)})
 
     def update(self):
         if not self._to_ConsoleQ.empty():

@@ -2,13 +2,13 @@ import numpy as np
 from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
-from skimage import draw, transform
+from skimage import draw
 import openpyxl as xl
+import time
 
 # To limit loop rate
 from pygame.time import Clock
 
-#TODO: Implement setting micrometer
 #TODO: Tell if it was saved successfully
 #TODO: Implement Saving mask files
 #TODO: Implement Making data for Machine learning
@@ -43,15 +43,12 @@ class Engine(Process):
         self._cell_layers = []
         self._cell_counts = []
         self._always_on_layers = []
-        #TODO: Delete after check
-        # (Color_of_cursor(R,G,B), rr, cc) For speed
-        # self._cursor = None
-        # Modes related to drawings
         self._is_drawing = False
         self._line_start_pos = None
         # Modes related to filling
         # Ratio = (micrometer / pixel)**2  -> Because it's area ratio
         self._mp_ratio = DEFAULT_MP_RATIO
+        self._mp_ratio_pixel = DEFAULT_MP_PIXEL
         self._mp_ratio_micrometer = DEFAULT_MP_MICRO
 
     @property
@@ -137,8 +134,8 @@ class Engine(Process):
 
     def load_image(self, path:str):
         #TODO: Resize image?
-        im = Image.open(path)
-        self.image = transform.resize(np.asarray(im).swapaxes(0,1),(800,600))*255
+        im = Image.open(path).resize((800,600))
+        self.image = np.asarray(im).swapaxes(0,1)
         self.set_empty_mask()
         self.reset()
         self._updated = True
@@ -209,6 +206,7 @@ class Engine(Process):
         self._to_ConsoleQ.put({FILL_MP_RATIO:self._mp_ratio})
 
     def put_ratio_list(self):
+        self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
 
@@ -244,6 +242,7 @@ class Engine(Process):
         """
         Draw the line and start next line
         """
+        st = time.time()
         _, last_layer = self._layers.pop()
         new_layer = np.zeros_like(last_layer)
         color = MEMBRANE
@@ -256,6 +255,8 @@ class Engine(Process):
         self._line_start_pos = None
         self.draw_mem_start(pos)
         self._updated = True
+        print('drawing time:')
+        print(time.time()-st)
         
     def draw_stop(self):
         """
@@ -300,12 +301,6 @@ class Engine(Process):
         self._is_drawing = False
         self._updated = True
 
-    #TODO: Delete after check
-    # def draw_cell_cursor(self, pos):
-    #     start = (pos[0]-2,pos[1]-2)
-    #     rr, cc = draw.rectangle_perimeter(start, extent=(5,5), shape=self.shape)
-    #     self._cursor = (CURSOR, rr, cc)
-    #     self._updated = True
 
     def draw_cell_start(self, pos):
         new_layer = np.zeros((self.shape[0],self.shape[1],1),
@@ -380,13 +375,12 @@ class Engine(Process):
 
     def fill_ratio_end(self, pos):
         pixel_dist = np.sqrt(np.sum(np.subtract(self._mp_ratio_start_pos,pos)**2))
-        self._mp_ratio = (self._mp_ratio_micrometer / pixel_dist)**2
+        self._mp_ratio_pixel = pixel_dist
         self._always_on_layers.pop()
         self._is_drawing = False
         self._mp_ratio_start_pos = None
         self._mode = None
         self._updated = True
-        print(self._mp_ratio)
 
     def fill_delete(self, indices):
         for idx in indices:
@@ -456,6 +450,9 @@ class Engine(Process):
                         self.fill_delete(v)
                     elif k == FILL_SAVE:
                         self.fill_save(*v)
+                    elif k == FILL_MICRO:
+                        self._mp_ratio_micrometer = v
+                        self._updated = True
 
             if not self._eventQ.empty():
                 q = self._eventQ.get()
@@ -514,6 +511,6 @@ class Engine(Process):
 
             if self._updated:
                 self.put_image()
-                self.put_mode()
                 self.put_ratio_list()
+                self.put_mode()
                 self._updated = False
