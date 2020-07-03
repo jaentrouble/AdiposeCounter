@@ -28,6 +28,10 @@ Counting adipose cells area
 
 9. Press **Save** and select desired Excel(\*.xlsx) file to save the area list. This will also save mask images to *dir_to_image\\save\\*
 
+10. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
+
+    *-You need to save __PER__ image.*
+
 ## Key bindings
 
 - Draw Border
@@ -45,3 +49,8 @@ Counting adipose cells area
 - Fill Cell
 
   - z : Same behaviour, but will only cancel last cell layers, not Drawn layers.
+  
+  ## Cautions
+  
+  - Do not open the excel file while saving. This might cause saving error.
+ 
