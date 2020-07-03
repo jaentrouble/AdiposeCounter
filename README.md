@@ -30,7 +30,7 @@ Counting adipose cells area
 
 10. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
 
-    *-You need to save __PER__ image.
+    *-You need to save __PER__ image.*
 
 ## Key bindings
 
