@@ -50,7 +50,7 @@ Counting adipose cells area
 
   - z : Same behaviour, but will only cancel last cell layers, not Drawn layers.
   
-  ## Cautions
+## Cautions
   
   - Do not open the excel file while saving. This might cause saving error.
  
