@@ -519,7 +519,8 @@ class Engine(Process):
                             else :
                                 self.fill_ratio_end(v)
                     elif k == MOUSEDOWN_RIGHT:
-                        self.draw_stop()
+                        if self.mode == MODE_DRAW_MEM:
+                            self.draw_stop()
                     elif k == MOUSEUP:
                         if self.mode == MODE_DRAW_CELL:
                             self.draw_cell_end()

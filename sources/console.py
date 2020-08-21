@@ -253,10 +253,9 @@ class Console(Process):
             self._image_folder = dirname
             self._image_name_list = []
             self._image_idx = 0
-            for (dirpath, dirnames, filenames) in os.walk(self._image_folder):
-                for f in filenames:
-                    if f.endswith(IMAGE_FORMATS):
-                        self._image_name_list.append(f)
+            for f in os.listdir(self._image_folder):
+                if f.endswith(IMAGE_FORMATS):
+                    self._image_name_list.append(f)
             self._to_EngineQ.put({
                 NEWIMAGE:os.path.join(self._image_folder,
                         self._image_name_list[self._image_idx])
