@@ -5,7 +5,10 @@ from tkinter import messagebox
 
 # Functions for Top-left threshold setting menu ###############################
 def button_tf_set_f(q):
-    q.put({SET_TF:None})
+    answer = messagebox.askyesno(message='This will reset your mask.\
+        \nContinue?')
+    if answer:
+        q.put({SET_TF:None})
 
 # def button_cell_col_f(q):
 #     q.put({SET_CELL:None})
