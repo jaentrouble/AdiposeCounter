@@ -237,7 +237,7 @@ class Engine(Process):
         self._to_ConsoleQ.put({FILL_MP_RATIO:self._mp_ratio})
 
     def put_ratio_list(self):
-        self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)
+        self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)**2
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
 
