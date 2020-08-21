@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow import keras
 import json
-from weights import w
+from .weights import w
 import numpy as np
 
 def full_conv4_2(inputs):

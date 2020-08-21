@@ -43,31 +43,31 @@ class Console(Process):
         # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
         self.frame_threshold.grid(column=0, row=0, sticky = (tk.W, tk.N))
-        self.button_mem_col = ttk.Button(self.frame_threshold,
-                                         text='Membrane Color',
-                                         command=partial(button_mem_col_f,
+        self.button_tf_set = ttk.Button(self.frame_threshold,
+                                         text='New AI',
+                                         command=partial(button_tf_set_f,
                                          q=self._to_EngineQ))
-        self.button_mem_col.grid(column=0, row=0, sticky=(tk.W))
-        self.button_cell_col = ttk.Button(self.frame_threshold,
-                                         text='Cell Color',
-                                         command=partial(button_cell_col_f,
-                                         q=self._to_EngineQ))
-        self.button_cell_col.grid(column=0, row=1, sticky=(tk.W))
-        ########### Color sample
-        self.label_mem_color = ttk.Label(self.frame_threshold)
-        self.image_mem_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
-                                                            color=MEMBRANE
-                                                            ))
-        self.label_mem_color['image'] = self.image_mem_color
-        self.label_mem_color.grid(column=1, row=0, sticky=(tk.W))
-        ###
-        self.label_cell_color = ttk.Label(self.frame_threshold)
-        self.image_cell_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
-                                                            color=CELL
-                                                            ))
-        self.label_cell_color['image'] = self.image_cell_color
-        self.label_cell_color.grid(column=1, row=1, sticky=(tk.W))
-        ###########
+        self.button_tf_set.grid(column=0, row=0, sticky=(tk.W))
+        # self.button_cell_col = ttk.Button(self.frame_threshold,
+        #                                  text='Cell Color',
+        #                                  command=partial(button_cell_col_f,
+        #                                  q=self._to_EngineQ))
+        # self.button_cell_col.grid(column=0, row=1, sticky=(tk.W))
+        # ########### Color sample
+        # self.label_mem_color = ttk.Label(self.frame_threshold)
+        # self.image_mem_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
+        #                                                     color=MEMBRANE
+        #                                                     ))
+        # self.label_mem_color['image'] = self.image_mem_color
+        # self.label_mem_color.grid(column=1, row=0, sticky=(tk.W))
+        # ###
+        # self.label_cell_color = ttk.Label(self.frame_threshold)
+        # self.image_cell_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
+        #                                                     color=CELL
+        #                                                     ))
+        # self.label_cell_color['image'] = self.image_cell_color
+        # self.label_cell_color.grid(column=1, row=1, sticky=(tk.W))
+        # ###########
         self.ratio = tk.DoubleVar()
         self.scale_ratio = ttk.Scale(self.frame_threshold,
                                      from_=0, to=100, length=100,
@@ -142,7 +142,6 @@ class Console(Process):
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_fill.grid(column=1, row=1, sticky=(tk.W, tk.S))
-        #TODO: Implement spinbox & Validate command
         self.label_fill_warning = ttk.Label(self.frame_fill,
                     text='Values : 1 ~ 1000')
         self.label_fill_warning.grid(column=0, row=0, columnspan=2)
@@ -328,11 +327,11 @@ class Console(Process):
         if not self._to_ConsoleQ.empty():
             q = self._to_ConsoleQ.get()
             for k,v in q.items():
-                if k == SET_MEM:
-                    self.mem_color = tuple(v)
-                elif k == SET_CELL:
-                    self.cell_color = tuple(v)
-                elif k == MODE_DRAW_MEM:
+                # if k == SET_MEM:
+                #     self.mem_color = tuple(v)
+                # elif k == SET_CELL:
+                #     self.cell_color = tuple(v)
+                if k == MODE_DRAW_MEM:
                     self._draw_mode_var.set('Draw membrane\nUndo:z\nStop:'\
                                 'Right click\nPress Apply(Enter) when finished')
                 elif k == MODE_DRAW_CELL:
