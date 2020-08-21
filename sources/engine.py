@@ -2,14 +2,14 @@ import numpy as np
 from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
-from skimage import draw
+from skimage import draw, transform
 from openpyxl import load_workbook
 import os
+from .adipose_model import get_model
 
 # To limit loop rate
 from pygame.time import Clock
 
-#TODO: Make 'change_mode' to deal with sudden mode change
 
 class Engine(Process):
     """
@@ -36,6 +36,10 @@ class Engine(Process):
         # Initial membrane and cell color (NOT MASK COLORS)
         self.mem_color = MEMBRANE
         self.cell_color = CELL
+        # tf model thing
+        # Set model when 'run' , because tf model cannot be pickled
+        self._raw_mask = None
+        self.ratio = 50
         # (Color_of_layer(R,G,B), Bool mask(Width, Height, 1))
         self._layers = []
         self._cell_layers = []
@@ -153,8 +157,9 @@ class Engine(Process):
 
     def load_image(self, path:str):
         #TODO: Resize image?
-        im = Image.open(path).resize((800,600))
-        self.image = np.asarray(im).swapaxes(0,1)
+        im = Image.open(path)
+        self.image = np.asarray(im.resize((1200,900))).swapaxes(0,1)
+        self._raw_image = np.asarray(im).swapaxes(0,1)
         self.set_empty_mask()
         self.reset()
         self._updated = True
@@ -166,21 +171,30 @@ class Engine(Process):
         self.mask = np.zeros_like(self.image)
         self._updated = True
 
+    def set_tf_mask(self):
+        small_tf_mask = np.zeros((800,600))
+        # small_image = transform.resize(self.image, (800,600), anti_aliasing=True).astype(np.float32)
+        small_image = self._raw_image.astype(np.float32)
+        small_image /= 255
+        rows = small_image.shape[0]//200
+        cols = small_image.shape[1]//200
+        for r in range(rows):
+            for c in range(cols):
+                img_batch = small_image[r*200:(r+1)*200,c*200:(c+1)*200]
+                mask_batch = self.model(img_batch[np.newaxis,:])[0]
+                small_tf_mask[r*100:(r+1)*100,c*100:(c+1)*100] = mask_batch
+        self._raw_mask = transform.resize(small_tf_mask,tuple(self.shape[:2]))
+        self.set_new_mask(self.ratio)
+                
+
     def set_new_mask(self, ratio:float):
         """
-        ratio : if ratio * dist_to_memcolor > (1-ratio) * dist_to_cellcolor,
-        the pixel is considered as cell
+        ratio : tf_mask > ratio/100 = True, ratio is from 0 to 100
         
         ** This will reset all layers
         """
-        ratio /=100
-        dist_to_memcolor=((self.image.astype(np.int) - self.mem_color)**2).sum(
-                                                        axis=2,
-                                                        keepdims=True)
-        dist_to_cellcolor=((self.image.astype(np.int) - self.cell_color)**2).sum(
-                                                        axis=2,
-                                                        keepdims=True)
-        mask_bool = (dist_to_memcolor*ratio) > (dist_to_cellcolor*(1-ratio))
+        self.ratio = ratio
+        mask_bool = (self._raw_mask < (self.ratio/100))[:,:,np.newaxis]
         self.mask = mask_bool * CELL
         self._tmp_mask = self.mask
         self.mode = None
@@ -223,7 +237,7 @@ class Engine(Process):
         self._to_ConsoleQ.put({FILL_MP_RATIO:self._mp_ratio})
 
     def put_ratio_list(self):
-        self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)
+        self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)**2
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
 
@@ -353,12 +367,12 @@ class Engine(Process):
                 if (not above) and (y>0) and (mask[x,y-1]==CELL).all():
                     pos_stack.append([x,y-1])
                     above = True
-                elif (above) and (y>0) and (mask[x,y-1]!=CELL).all():
+                elif (above) and (y>0) and (mask[x,y-1]!=CELL).any():
                     above = False
-                elif (not below) and (y<self.shape[1]-1) and (mask[x,y+1]==CELL).all():
+                if (not below) and (y<self.shape[1]-1) and (mask[x,y+1]==CELL).all():
                     pos_stack.append([x,y+1])
                     below = True
-                elif (below) and (y<self.shape[1]-1) and (mask[x,y+1]==CELL).all():
+                elif (below) and (y<self.shape[1]-1) and (mask[x,y+1]!=CELL).any():
                     below = False
                 x += 1
         self._cell_layers.append((COUNT, new_layer))
@@ -437,6 +451,7 @@ class Engine(Process):
 
     def run(self):
         mainloop = True
+        self.model = get_model()
         self._clock = Clock()
         while mainloop:
             self._clock.tick(60)
@@ -455,10 +470,13 @@ class Engine(Process):
                     elif k == MODE_MASK:
                         self.mask_mode = True
                     # Set colors & ratio
-                    elif k == SET_MEM:
-                        self.mode = MODE_SET_MEM
-                    elif k == SET_CELL:
-                        self.mode = MODE_SET_CELL
+                    # elif k == SET_MEM:
+                    #     self.mode = MODE_SET_MEM
+                    # elif k == SET_CELL:
+                    #     self.mode = MODE_SET_CELL
+                    elif k == SET_TF:
+                        self.mask_mode = True
+                        self.set_tf_mask()
                     elif k == SET_RATIO:
                         self.mask_mode = True
                         self.set_new_mask(v)
@@ -493,17 +511,17 @@ class Engine(Process):
                 for k,v in q.items():
                     if k == MOUSEDOWN:
                         # v : mouse pos which came from Viewer
-                        # Set color
-                        if self.mode == MODE_SET_MEM:
-                            self.set_mem_color(v)
-                            self._color_mode = None
-                            self._to_ConsoleQ.put({SET_MEM:self.mem_color})
-                        elif self.mode == MODE_SET_CELL:
-                            self.set_cell_color(v)
-                            self._color_mode = None
-                            self._to_ConsoleQ.put({SET_CELL:self.cell_color})
+                        # # Set color
+                        # if self.mode == MODE_SET_MEM:
+                        #     self.set_mem_color(v)
+                        #     self._color_mode = None
+                        #     self._to_ConsoleQ.put({SET_MEM:self.mem_color})
+                        # elif self.mode == MODE_SET_CELL:
+                        #     self.set_cell_color(v)
+                        #     self._color_mode = None
+                        #     self._to_ConsoleQ.put({SET_CELL:self.cell_color})
                         # Drawing mode
-                        elif self.mode == MODE_DRAW_MEM:
+                        if self.mode == MODE_DRAW_MEM:
                             if not self._is_drawing:
                                 self.draw_mem_start(v)
                             else:
@@ -519,7 +537,8 @@ class Engine(Process):
                             else :
                                 self.fill_ratio_end(v)
                     elif k == MOUSEDOWN_RIGHT:
-                        self.draw_stop()
+                        if self.mode == MODE_DRAW_MEM:
+                            self.draw_stop()
                     elif k == MOUSEUP:
                         if self.mode == MODE_DRAW_CELL:
                             self.draw_cell_end()

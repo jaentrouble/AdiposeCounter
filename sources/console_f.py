@@ -4,11 +4,14 @@ from tkinter import messagebox
 ## commands to call from console
 
 # Functions for Top-left threshold setting menu ###############################
-def button_mem_col_f(q):
-    q.put({SET_MEM:None})
+def button_tf_set_f(q):
+    answer = messagebox.askyesno(message='This will reset your mask.\
+        \nContinue?')
+    if answer:
+        q.put({SET_TF:None})
 
-def button_cell_col_f(q):
-    q.put({SET_CELL:None})
+# def button_cell_col_f(q):
+#     q.put({SET_CELL:None})
 
 def button_ratio_f(ratio, q):
     print(ratio.get())
