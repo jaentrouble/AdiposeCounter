@@ -48,6 +48,12 @@ class Console(Process):
                                          command=partial(button_tf_set_f,
                                          q=self._to_EngineQ))
         self.button_tf_set.grid(column=0, row=0, sticky=(tk.W))
+        self.prog = tk.DoubleVar()
+        self.progress_tf = ttk.Progressbar(self.frame_threshold,
+                                            mode='determinate',
+                                            orient='horizontal',
+                                            variable=self.prog)
+        self.progress_tf.grid(column=0, row=1)
         # self.button_cell_col = ttk.Button(self.frame_threshold,
         #                                  text='Cell Color',
         #                                  command=partial(button_cell_col_f,
@@ -349,4 +355,6 @@ class Console(Process):
                     self.list_items = v
                 elif k == MESSAGE_BOX:
                     self.message_box(v)
+                elif k == TF_PROG:
+                    self.prog.set(v)
         self.root.after(16, self.update)

@@ -178,11 +178,14 @@ class Engine(Process):
         small_image /= 255
         rows = small_image.shape[0]//200
         cols = small_image.shape[1]//200
+        total = rows*cols
         for r in range(rows):
             for c in range(cols):
                 img_batch = small_image[r*200:(r+1)*200,c*200:(c+1)*200]
                 mask_batch = self.model(img_batch[np.newaxis,:])[0]
                 small_tf_mask[r*100:(r+1)*100,c*100:(c+1)*100] = mask_batch
+                # Progress in percent
+                self._to_ConsoleQ.put({TF_PROG:((r*cols+c)/total)*100})
         self._raw_mask = transform.resize(small_tf_mask,tuple(self.shape[:2]))
         self.set_new_mask(self.ratio)
                 

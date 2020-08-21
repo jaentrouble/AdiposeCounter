@@ -5,6 +5,8 @@ import json
 from .weights import w
 import numpy as np
 
+
+
 def full_conv4_2(inputs):
     x = layers.Conv2D(32, 3, padding='same', activation='relu')(inputs)
     x = layers.Conv2D(32, 3, padding='same', activation='relu')(x)
