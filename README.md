@@ -6,7 +6,7 @@ Counting adipose cells area
 
 1. Open folder
 
-2. Press **AI**
+2. Press **New AI**
   *- This may take some time*
 
 3. Adjust cell-to-membrane ratio and press **Set** 
