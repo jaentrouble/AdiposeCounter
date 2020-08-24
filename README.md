@@ -38,7 +38,7 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 
 6. Use **Set Length** to modify pixel-to-area ratio. 
 
-    *-This is by default 50μm, 800\*600 image*
+    *-The default value is empirical value when the image is 1600\*1200 with 50μm standard*
     
 7. Use **Fill Cell** to fill the counting cells and calculated areas will show up on the list. You can still modify pixel-to-area ratio and it will immediately be applied to the list.
     
