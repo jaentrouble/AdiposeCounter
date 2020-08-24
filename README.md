@@ -14,7 +14,7 @@ Both versions do not need extra installation step and are portable.
 Install from the link below (Only tested with x64)
 https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads
 
-## How to use (v1.1.0)
+## How to use (v2.0.0)
 
 1. Open folder
 
