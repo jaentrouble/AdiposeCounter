@@ -6,7 +6,7 @@ Counting adipose cells area
 - .exe file
 - .7z compressed folder
 
-Both versions do not need extra installation step and are portable.
+Both versions do not need extra installation steps and are portable.
 .exe file is slower than .7z version, in terms of initial loading.
 
 ### Requires c++ redistributional
