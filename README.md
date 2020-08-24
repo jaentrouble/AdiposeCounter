@@ -2,16 +2,33 @@
 
 Counting adipose cells area
 
+## Install
+- .exe file
+- .7z compressed folder
+
+Both versions do not need extra installation step and are portable.
+.exe file is slower than .7z version, in terms of initial loading.
+
+### Requires c++ redistributional
+
+Install from the link below (Only tested with x64)
+https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads
+
 ## How to use (v1.1.0)
 
 1. Open folder
 
-2. Press **New AI**
-  *- This may take some time*
+2. Press **Box**
 
-3. Adjust cell-to-membrane ratio and press **Set** 
+  *- Click two diagonal Vertex of imaginary box around a cell*
+ 
+3. Than the image is cut as the imaginary box around the cell.
 
-    *- This wil show a new mask image.*
+4. click **AI mask**
+
+   *- This may take some time*
+
+5. Adjust cell-to-membrane ratio and press **Set** 
 
 4. Use **Draw Border** and **Color White** to adjust mask image
 
@@ -22,12 +39,18 @@ Counting adipose cells area
 6. Use **Set Length** to modify pixel-to-area ratio. 
 
     *-This is by default 50μm, 800\*600 image*
+    
+7. Use **Fill Cell** to fill the counting cells and calculated areas will show up on the list. You can still modify pixel-to-area ratio and it will immediately be applied to the list.
+    
+8. Press **Confirm**
 
-7. Use **Fill Cell** to fill the counting cells and calculated areas will show up on the list. You can still modify pixel-to-area ratio and will immediately applied to the list.
+    *- The image returns to the original image. A puple box is shown around the cell you just counted.*
+    *- You can hide or show the box with **Hide Box / Show Box** button
+    *- The yellow cell mask will disappear, but the area is still in the list.*
 
-8. You can select a value from the list and **Delete** it. It will also delete the cell mark of the mask.
+9. You can select a value from the list and **Delete** it. It will also delete the box around the counted cell.
 
-9. Press **Save** and select desired Excel(\*.xlsx) file to save the area list. This will also save mask images to *dir_to_image\\save\\*
+10. Press **Save** and select desired Excel(\*.xlsx) file to save the area list. This will also save mask images to *dir_to_image\\save\\*
 
 10. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
 
@@ -53,5 +76,5 @@ Counting adipose cells area
   
 ## Cautions
   
-  - Do not open the excel file while saving. This might cause saving error.
+  - Do not edit or open the excel file with Excel (or other programs) while saving. This might cause saving error.
  
