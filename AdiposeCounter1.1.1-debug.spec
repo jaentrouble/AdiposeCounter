@@ -1,12 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+import importlib
 block_cipher = None
 
 
 a = Analysis(['Test.py'],
              pathex=['C:\\Users\\vlffl\\Documents\\GitHub\\AdiposeCounter'],
              binaries=[],
-             datas=[],
+             datas=[(os.path.join(os.path.dirname(importlib.import_module('tensorflow').__file__),
+                              "lite/experimental/microfrontend/python/ops/_audio_microfrontend_op.so"),
+                 "tensorflow/lite/experimental/microfrontend/python/ops/")],
              hiddenimports=[],
              hookspath=['sources'],
              runtime_hooks=[],
@@ -21,7 +25,7 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='Test',
+          name='AdiposeCounter1.1.1-debug',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -34,4 +38,4 @@ coll = COLLECT(exe,
                strip=False,
                upx=True,
                upx_exclude=[],
-               name='Test')
+               name='AdiposeCounter1.1.1-debug')

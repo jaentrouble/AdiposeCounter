@@ -1,6 +1,6 @@
 from PyInstaller.utils.hooks import collect_submodules
 
-hiddenimports = collect_submodules('tensorflow.python')
+hiddenimports = collect_submodules('tensorflow.python') + collect_submodules('tensorflow.lite')
 
 # hiddenimports = [
 #     'tensorflow.python.ops.numpy_ops',
