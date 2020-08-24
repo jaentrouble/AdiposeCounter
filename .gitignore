@@ -4,3 +4,4 @@ images/
 build/
 .vscode/
 dist/
+distenv2/
