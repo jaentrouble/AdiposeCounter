@@ -21,7 +21,7 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 
 2. Press **Box**
 
-  *- Click two diagonal Vertex of imaginary box around a cell*
+    *- Click two diagonal Vertex of imaginary box around a cell*
  
 3. Than the image is cut as the imaginary box around the cell.
 
