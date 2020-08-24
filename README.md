@@ -2,11 +2,12 @@
 
 Counting adipose cells area
 
-## How to use
+## How to use (v1.1.0)
 
 1. Open folder
 
-2. Set membrane color and Cell color
+2. Press **New AI**
+  *- This may take some time*
 
 3. Adjust cell-to-membrane ratio and press **Set** 
 
