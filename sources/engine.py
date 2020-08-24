@@ -2,14 +2,16 @@ import numpy as np
 from multiprocessing import Process, Queue
 from PIL import Image
 from .common.constants import *
-from skimage import draw, transform
+from skimage import draw
+from skimage.transform import resize
 from openpyxl import load_workbook
 import os
-from .adipose_model import get_model
+import tensorflow as tf
+from tensorflow import keras
+from .model_loader import get_model
 
 # To limit loop rate
 from pygame.time import Clock
-
 
 class Engine(Process):
     """
@@ -21,7 +23,6 @@ class Engine(Process):
         super().__init__(daemon=True)
         # Initial image and mask
         self.image = np.zeros((300,300,3), dtype=np.uint8)
-        self.set_empty_mask()
         # Queues
         self._to_EngineQ = to_EngineQ
         self._to_ConsoleQ = to_ConsoleQ
@@ -36,10 +37,13 @@ class Engine(Process):
         # Initial membrane and cell color (NOT MASK COLORS)
         self.mem_color = MEMBRANE
         self.cell_color = CELL
-        # tf model thing
-        # Set model when 'run' , because tf model cannot be pickled
-        self._raw_mask = None
-        self.ratio = 50
+        # Box layers
+        self._box_layers = []
+        self._box_start_pos = None
+        # Clipped mode
+        self._clipped_mode = False
+        self._clipped_masks = []
+        self._clipped_imgs = []
         # (Color_of_layer(R,G,B), Bool mask(Width, Height, 1))
         self._layers = []
         self._cell_layers = []
@@ -47,6 +51,7 @@ class Engine(Process):
         self._always_on_layers = []
         self._is_drawing = False
         self._line_start_pos = None
+        self._show_box = True
         # Modes related to filling
         # Ratio = (micrometer / pixel)**2  -> Because it's area ratio
         self._mp_ratio = DEFAULT_MP_RATIO
@@ -69,6 +74,8 @@ class Engine(Process):
             raise TypeError('Inappropriate shape of image')
         self._image = image.astype(np.uint8)
         self._shape = self._image.shape
+        self.set_empty_mask()
+        self._updated = True
 
     @property
     def shape(self):
@@ -133,34 +140,30 @@ class Engine(Process):
             self.draw_stop()
         elif self._mode == MODE_FILL_MP_RATIO and self._is_drawing:
             self.fill_ratio_cancel()
+        elif self._mode == MODE_DRAW_BOX:
+            self.draw_box_stop()
         self._mode = mode
         self._updated = True
-
-    # def mode_change(self):
-    #     if self._mode == MODE_DRAW_MEM:
-    #         self.draw_stop()
-    #     elif self._mode == MODE_FILL_MP_RATIO and self._is_drawing:
-    #         self.fill_ratio_cancel()
-    #     self._mode = None
-    #     self._updated = True
 
     def reset(self):
         self._layers = []
         self._cell_layers = []
         self._cell_counts = []
+        self._box_layers = []
         self._always_on_layers = []
+        self._clipped_imgs = []
+        self._clipped_masks = []
         self._is_drawing = False
         self._line_start_pos = None
+        self._box_start_pos = None
         self.mode = None
         self._mask_mode = False
         self._updated = True
 
     def load_image(self, path:str):
         #TODO: Resize image?
-        im = Image.open(path)
-        self.image = np.asarray(im.resize((1200,900))).swapaxes(0,1)
-        self._raw_image = np.asarray(im).swapaxes(0,1)
-        self.set_empty_mask()
+        im = Image.open(path).resize((1200,900))
+        self.image = np.asarray(im).swapaxes(0,1)
         self.reset()
         self._updated = True
 
@@ -171,62 +174,84 @@ class Engine(Process):
         self.mask = np.zeros_like(self.image)
         self._updated = True
 
-    def set_tf_mask(self):
-        small_tf_mask = np.zeros((800,600))
-        # small_image = transform.resize(self.image, (800,600), anti_aliasing=True).astype(np.float32)
-        small_image = self._raw_image.astype(np.float32)
-        small_image /= 255
-        rows = small_image.shape[0]//200
-        cols = small_image.shape[1]//200
-        total = rows*cols
-        for r in range(rows):
-            for c in range(cols):
-                img_batch = small_image[r*200:(r+1)*200,c*200:(c+1)*200]
-                mask_batch = self.model(img_batch[np.newaxis,:])[0]
-                small_tf_mask[r*100:(r+1)*100,c*100:(c+1)*100] = mask_batch
-                # Progress in percent
-                self._to_ConsoleQ.put({TF_PROG:((r*cols+c)/total)*100})
-        self._raw_mask = transform.resize(small_tf_mask,tuple(self.shape[:2]))
-        self.set_new_mask(self.ratio)
-                
-
-    def set_new_mask(self, ratio:float):
+    def set_new_mask(self):
         """
-        ratio : tf_mask > ratio/100 = True, ratio is from 0 to 100
+        ratio : if ratio * dist_to_memcolor > (1-ratio) * dist_to_cellcolor,
+        the pixel is considered as cell
         
         ** This will reset all layers
         """
-        self.ratio = ratio
-        mask_bool = (self._raw_mask < (self.ratio/100))[:,:,np.newaxis]
-        self.mask = mask_bool * CELL
+        # Default ratio
+        ratio = 0.3
+        casted_input = resize(self.image, (200,200), preserve_range=True,
+                            anti_aliasing=True)[np.newaxis,:].astype(np.float32)
+        raw_output = self._mask_model(casted_input).numpy()[0]
+        self.prob_mask = resize(raw_output, self.shape, preserve_range=True,
+                           anti_aliasing=True)
+        self.mask = (self.prob_mask > ratio) * CELL
         self._tmp_mask = self.mask
         self.mode = None
+        self.mask_mode = True
+        self._layers = []
+        self._updated = True
+        # ####### DEBUG
+        # import matplotlib.pyplot as plt
+        # print(casted_input.dtype)
+        # print(casted_input[0][0][:10])
+        # print(self.image.dtype)
+        # fig = plt.figure()
+        # ax = fig.add_subplot(1,2,1)
+        # ax.imshow(casted_input[0])
+        # ax = fig.add_subplot(1,2,2)
+        # ax.imshow(raw_output)
+        # plt.show()
+
+    def change_mask_ratio(self, ratio:float):
+        ratio /= 100
+        self.mask = (self.prob_mask > ratio) * CELL
+        self._tmp_mask = self.mask
+        self.mode = None
+        self.mask_mode = True
         self._layers = []
         self._updated = True
     
     def put_image(self):
-        if self._mask_mode:
-            # To make drawing cell mode faster, fix other layers temporally
-            if self.mode == MODE_DRAW_CELL and self._is_drawing:
-                tmp_draw_mask = self._tmp_mask.copy()
-                for c, m in self._layers:
-                    np.multiply(tmp_draw_mask, np.logical_not(m), out=tmp_draw_mask)
-                    np.add(tmp_draw_mask, m * np.array(c,np.uint8), out=tmp_draw_mask)
-                self._imageQ.put(tmp_draw_mask)
-            else :
-                self._tmp_mask = self.mask
-                for c, m in self._layers:
-                    np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
-                    np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
-                for c, m in self._cell_layers:
-                    np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
-                    np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+        if self._clipped_mode :
+            if self._mask_mode:
+                # To make drawing cell mode faster, fix other layers temporally
+                if self.mode == MODE_DRAW_CELL and self._is_drawing:
+                    tmp_draw_mask = self._tmp_mask.copy()
+                    for c, m in self._layers:
+                        np.multiply(tmp_draw_mask, np.logical_not(m), out=tmp_draw_mask)
+                        np.add(tmp_draw_mask, m * np.array(c,np.uint8), out=tmp_draw_mask)
+                    self._imageQ.put(tmp_draw_mask)
+                else :
+                    self._tmp_mask = self.mask
+                    for c, m in self._layers:
+                        np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
+                        np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+                    for c, m in self._cell_layers:
+                        np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
+                        np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+                    for c, m in self._always_on_layers:
+                        np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
+                        np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
+                    self._imageQ.put(self._tmp_mask)
+            else:
+                tmp_image = self.image
                 for c, m in self._always_on_layers:
-                    np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
-                    np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
-                self._imageQ.put(self._tmp_mask)
-        else:
+                    np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
+                    np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
+                self._imageQ.put(tmp_image)
+        else :
             tmp_image = self.image
+            if self._show_box:
+                for c, m in self._always_on_layers:
+                    np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
+                    np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
+                for c, m in self._box_layers:
+                    np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
+                    np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
             for c, m in self._always_on_layers:
                 np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
                 np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
@@ -244,15 +269,117 @@ class Engine(Process):
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
 
-    def set_mem_color(self, pos):
-        x,y = pos
-        new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
-        self.mem_color = new_color
+    # def set_mem_color(self, pos):
+    #     x,y = pos
+    #     new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
+    #     self.mem_color = new_color
 
-    def set_cell_color(self, pos):
-        x,y = pos
-        new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
-        self.cell_color = new_color
+    # def set_cell_color(self, pos):
+    #     x,y = pos
+    #     new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
+    #     self.cell_color = new_color
+
+    def draw_box_start(self, pos):
+        """
+        Make a new layer and draw initial point (Red dot)
+        """
+        new_layer = np.zeros((self.shape[0],self.shape[1],1),
+                             dtype=np.bool)
+        color = BOX_START
+        x, y = pos
+        new_layer[x:x+3, y:y+3] = True
+        self._always_on_layers.append((color, new_layer))
+        self._box_start_pos = pos
+        self._is_drawing = True
+        self._updated = True
+
+    def draw_box_stop(self):
+        """
+        When drawing box is interrupted.
+        """
+        self._box_start_pos = None
+        if self._is_drawing:
+            self._always_on_layers.pop()
+        self._is_drawing = False
+        self._etcQ.put({CROSS_CURSOR_OFF:None})
+        self._updated = True
+
+
+    def draw_box_end(self, pos):
+        """
+        Draw Box
+        """
+        _, last_layer = self._always_on_layers.pop()
+        color = BOX_COLOR
+        new_layer = np.zeros_like(last_layer)
+        del last_layer
+        x0, y0 = self._box_start_pos
+        x1, y1 = pos
+        r0, c0 = min(x0, x1), min(y0, y1)
+        r1, c1 = max(x0, x1), max(y0, y1)
+        new_layer[r0:r1+1,c0] = True
+        new_layer[r0:r1+1,c1] = True
+        new_layer[r0,c0:c1+1] = True
+        new_layer[r1,c0:c1+1] = True
+        self._box_layers.append((color, new_layer))
+        self._box_start_pos = None
+        self._is_drawing = False
+        self.mode = None
+        self._etcQ.put({CROSS_CURSOR_OFF:None})
+        self._show_box = True
+        self.clip_image((r0,c0),(r1,c1))
+        self._updated = True
+
+    def clip_image(self, pos1, pos2):
+        """
+        clip image between two points in rect.
+        order does not matter
+        """
+        self._backup_image = self.image
+        x0, y0 = pos1
+        x1, y1 = pos2
+        r0, c0 = min(x0, x1), min(y0, y1)
+        r1, c1 = max(x0, x1), max(y0, y1)
+        self.image = self._backup_image[r0:r1,c0:c1]
+        self._clipped_mode = True
+        self._to_ConsoleQ.put({MODE_CLIP:None})
+        self._updated = True
+
+    def _clip_exit(self):
+        """
+        Reset layers and get back to original image.
+        Careful : This does not save calculated data.
+        """
+        self.image = self._backup_image
+        self._clipped_mode = False
+        self._layers = []
+        self._cell_layers = []
+        self._to_ConsoleQ.put({MODE_CANCEL_CLIP:None})
+        self.mask_mode = False
+        self.mode = None
+        self._updated = True
+
+    def clip_cancel(self) :
+        """
+        Calls _clip_exit and erase the box too.
+        """
+        if self._clipped_mode:
+            self._clip_exit()
+            if len(self._cell_layers) >0:
+                self.fill_delete([-1])
+            else: 
+                self._box_layers.pop()
+            self._updated = True
+
+    def clip_confirm(self):
+        if self._clipped_mode:
+            if len(self._cell_layers) > 0 :
+                self._clipped_masks.append(self._tmp_mask)
+                self._clipped_imgs.append(self.image)
+                self._clip_exit()
+            # If press confirm without filling any cells, just cancel
+            else :
+                self.clip_cancel()
 
     def draw_mem_start(self, pos):
         """
@@ -378,6 +505,10 @@ class Engine(Process):
                 elif (below) and (y<self.shape[1]-1) and (mask[x,y+1]!=CELL).any():
                     below = False
                 x += 1
+        # Only one cell per clip
+        if len(self._cell_layers) > 0:
+            self._cell_layers.pop()
+            self._cell_counts.pop()
         self._cell_layers.append((COUNT, new_layer))
         self._cell_counts.append(pix_count)
         self._updated = True
@@ -415,10 +546,12 @@ class Engine(Process):
         self._updated = True
 
     def fill_delete(self, indices):
-        for idx in indices:
-            self._cell_layers.pop(idx)
-            self._cell_counts.pop(idx)
-        self._updated = True
+        if len(self._cell_counts) > 0:
+            for idx in indices:
+                # self._cell_layers.pop(idx)
+                self._cell_counts.pop(idx)
+                self._box_layers.pop(idx)
+            self._updated = True
 
     def fill_save(self, excel_dir, image_name, image_folder):
         try :
@@ -443,19 +576,30 @@ class Engine(Process):
             self._to_ConsoleQ.put({MESSAGE_BOX:'Saved Successfully.'\
                 '\nDon\'t forget to check.'})
         # Saving the mask image
-        mask_save = Image.fromarray(self._tmp_mask.swapaxes(0,1))
-        new_name = image_name + '_mask.png'
-        save_folder = os.path.join(image_folder,'save')
-        if not os.path.exists(save_folder):
-            os.mkdir(save_folder)
-        filename = os.path.join(save_folder, new_name)
-        mask_save.save(filename)
+        mask_folder = os.path.join(image_folder,'save',image_name,'mask')
+        img_folder = os.path.join(image_folder,'save',image_name,'img')
+        if not os.path.exists(mask_folder):
+            os.makedirs(mask_folder)
+        if not os.path.exists(img_folder):
+            os.makedirs(img_folder)
+        start_num = len(os.listdir(img_folder))
+        for i, mask, img in zip(range(len(self._clipped_imgs)), 
+                                self._clipped_masks,
+                                self._clipped_imgs):
+            mask_save = Image.fromarray(mask.swapaxes(0,1))
+            img_save = Image.fromarray(img.swapaxes(0,1))
+            mask_name = image_name + str(i+start_num) + '_mask.png'
+            img_name = image_name + str(i+start_num) + '.png'
+            filename_mask = os.path.join(mask_folder, mask_name)
+            filename_img = os.path.join(img_folder, img_name)
+            mask_save.save(filename_mask)
+            img_save.save(filename_img)
 
 
     def run(self):
         mainloop = True
-        self.model = get_model()
         self._clock = Clock()
+        self._mask_model = get_model('hr_5_3_0')
         while mainloop:
             self._clock.tick(60)
             if not self._to_EngineQ.empty():
@@ -467,22 +611,34 @@ class Engine(Process):
                     elif k == NEWIMAGE:
                         self.load_image(v)
                     elif k == NEWMASK:
-                        self.set_new_mask(*v)
+                        self.set_new_mask()
                     elif k == MODE_IMAGE:
                         self.mask_mode = False
                     elif k == MODE_MASK:
                         self.mask_mode = True
-                    # Set colors & ratio
+                    # # Set colors & ratio
                     # elif k == SET_MEM:
                     #     self.mode = MODE_SET_MEM
                     # elif k == SET_CELL:
                     #     self.mode = MODE_SET_CELL
-                    elif k == SET_TF:
-                        self.mask_mode = True
-                        self.set_tf_mask()
+                    # Box Drawing
+                    elif k == DRAW_BOX:
+                        self.mode = MODE_DRAW_BOX
+                        self._etcQ.put({CROSS_CURSOR_ON:None})
+                        self._updated = True
+                    elif k == MODE_CANCEL_CLIP:
+                        self.clip_cancel()
                     elif k == SET_RATIO:
                         self.mask_mode = True
-                        self.set_new_mask(v)
+                        self.change_mask_ratio(v)
+                    elif k == MODE_CONFIRM_CLIP:
+                        self.clip_confirm()
+                    elif k == MODE_SHOW_BOX:
+                        self._show_box = True
+                        self._updated = True
+                    elif k == MODE_HIDE_BOX:
+                        self._show_box = False
+                        self._updated = True
                     #Drawing modes
                     elif k == DRAW_MEM:
                         self.mode = MODE_DRAW_MEM
@@ -523,6 +679,12 @@ class Engine(Process):
                         #     self.set_cell_color(v)
                         #     self._color_mode = None
                         #     self._to_ConsoleQ.put({SET_CELL:self.cell_color})
+                        # Box mode
+                        if self.mode == MODE_DRAW_BOX:
+                            if not self._is_drawing:
+                                self.draw_box_start(v)
+                            else:
+                                self.draw_box_end(v)
                         # Drawing mode
                         if self.mode == MODE_DRAW_MEM:
                             if not self._is_drawing:

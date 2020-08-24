@@ -40,20 +40,25 @@ class Console(Process):
         self._fill_ratio_var = tk.DoubleVar(value=DEFAULT_MP_RATIO)
         self._micro_var = tk.StringVar(value=DEFAULT_MP_MICRO)
 
-        # Configure Top-left threshold setting menu ###########################
+        # # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
         self.frame_threshold.grid(column=0, row=0, sticky = (tk.W, tk.N))
-        self.button_tf_set = ttk.Button(self.frame_threshold,
-                                         text='New AI',
-                                         command=partial(button_tf_set_f,
-                                         q=self._to_EngineQ))
-        self.button_tf_set.grid(column=0, row=0, sticky=(tk.W))
-        self.prog = tk.DoubleVar()
-        self.progress_tf = ttk.Progressbar(self.frame_threshold,
-                                            mode='determinate',
-                                            orient='horizontal',
-                                            variable=self.prog)
-        self.progress_tf.grid(column=0, row=1)
+        self.button_draw_box = ttk.Button(self.frame_threshold,
+                                          text='Box',
+                                          command=partial(button_draw_box_f,
+                                          q=self._to_EngineQ))
+        self.button_draw_box.grid(column=0, row=0, sticky=(tk.W))
+        self.button_cancel_clip = ttk.Button(self.frame_threshold,
+                                          text='Cancel',
+                                          command=partial(button_cancel_clip_f,
+                                          q=self._to_EngineQ))
+        self.button_cancel_clip.grid(column=0, row=1, sticky=(tk.W))
+
+        # self.button_mem_col = ttk.Button(self.frame_threshold,
+        #                                  text='Membrane Color',
+        #                                  command=partial(button_mem_col_f,
+        #                                  q=self._to_EngineQ))
+        # self.button_mem_col.grid(column=0, row=0, sticky=(tk.W))
         # self.button_cell_col = ttk.Button(self.frame_threshold,
         #                                  text='Cell Color',
         #                                  command=partial(button_cell_col_f,
@@ -74,17 +79,27 @@ class Console(Process):
         # self.label_cell_color['image'] = self.image_cell_color
         # self.label_cell_color.grid(column=1, row=1, sticky=(tk.W))
         # ###########
+        self.button_set_new_mask = ttk.Button(self.frame_threshold,
+                                          text='AI mask',
+                                          command=partial(button_set_new_mask_f,
+                                          q=self._to_EngineQ))
+        self.button_set_new_mask.grid(column=0, row=2, sticky=(tk.W))
         self.ratio = tk.DoubleVar()
         self.scale_ratio = ttk.Scale(self.frame_threshold,
                                      from_=0, to=100, length=100,
                                      variable=self.ratio)
         self.scale_ratio.set(50)
-        self.scale_ratio.grid(column=0, row=2)
+        self.scale_ratio.grid(column=0, row=3)
         self.button_ratio = ttk.Button(self.frame_threshold,
                                        text='Set',
                                        command=partial(button_ratio_f, 
                                        self.ratio, self._to_EngineQ))
-        self.button_ratio.grid(column=1, row=2)
+        self.button_ratio.grid(column=1, row=3)
+        self.button_confirm = ttk.Button(self.frame_threshold,
+                                         text='Confirm',
+                                         command=partial(button_confirm_f,
+                                         q=self._to_EngineQ))
+        self.button_confirm.grid(column=0, row=4)
 
         # Configure Top-Middle show/hide mask menu ############################
         self.frame_mask = ttk.Frame(self.root, padding='5 5 5 5')
@@ -99,6 +114,16 @@ class Console(Process):
                                            command=partial(button_hide_mask_f,
                                            q=self._to_EngineQ))
         self.button_hide_mask.grid(column=0, row=1)
+        self.button_show_box = ttk.Button(self.frame_mask,
+                                          text='Show Box',
+                                          command=partial(button_show_box_f,
+                                          q=self._to_EngineQ))
+        self.button_show_box.grid(column=0, row=2)
+        self.button_hide_box = ttk.Button(self.frame_mask,
+                                          text='Hide Box',
+                                          command=partial(button_hide_box_f,
+                                          q=self._to_EngineQ))
+        self.button_hide_box.grid(column=0, row=3)
 
         # Configure Top-Right Prev/Next menu ##################################
         self.frame_prevnext = ttk.Frame(self.root, padding='5 5 5 5')
@@ -148,6 +173,7 @@ class Console(Process):
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_fill.grid(column=1, row=1, sticky=(tk.W, tk.S))
+        #TODO: Implement spinbox & Validate command
         self.label_fill_warning = ttk.Label(self.frame_fill,
                     text='Values : 1 ~ 1000')
         self.label_fill_warning.grid(column=0, row=0, columnspan=2)
@@ -185,12 +211,12 @@ class Console(Process):
                                          command=self.list_save.yview)
         self.scroll_save.grid(column=1, row=0, sticky=(tk.E, tk.N, tk.S))
         self.list_save.configure(yscrollcommand=self.scroll_save.set)
-        self.button_save = ttk.Button(self.frame_save, text='Save',
-                                      command=self.button_save_f)
-        self.button_save.grid(column=2, row=1, sticky=(tk.E, tk.S))
         self.button_delete = ttk.Button(self.frame_save,
                                         text='Delete', command=self.button_delete_f)
         self.button_delete.grid(column=2, row=0, sticky=(tk.S))
+        self.button_save = ttk.Button(self.frame_save, text='Save',
+                                      command=self.button_save_f)
+        self.button_save.grid(column=2, row=1, sticky=(tk.E, tk.S))
 
         # Set weights of frames ###############################################
         self.root.columnconfigure(0, weight=1)
@@ -198,6 +224,35 @@ class Console(Process):
         self.root.columnconfigure(2, weight=1)
         self.root.rowconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=1)
+
+        # Widgets that should be DISABLED during normal mode ##############
+        self.normal_disabled=[
+            self.button_cancel_clip,
+            self.button_set_new_mask,
+            self.scale_ratio,
+            self.button_ratio,
+            self.button_confirm,
+            self.button_show_mask,
+            self.button_hide_mask,
+            self.button_draw_cancel,
+            self.button_draw_border,
+            self.button_draw_cell,
+            self.button_draw_apply,
+        ]
+
+        # Widgets that should be DISABLED during clip mode ##############
+        self.clip_disabled=[
+            self.button_draw_box,
+            self.button_show_box,
+            self.button_hide_box,
+            self.button_prev,
+            self.button_next,
+            self.button_open,
+            self.button_save,
+            self.button_delete,
+        ]
+        # Switch to normal mode state
+        self.normal_mode_buttons()
 
     def run(self):
         self.initiate()
@@ -207,31 +262,50 @@ class Console(Process):
         self._termQ.put(TERMINATE)
 
 
-    @property
-    def mem_color(self):
-        """Current color set for membrane"""
-        return self._mem_color
+    # @property
+    # def mem_color(self):
+    #     """Current color set for membrane"""
+    #     return self._mem_color
 
-    @mem_color.setter
-    def mem_color(self, color):
-        self._mem_color = color
-        self.image_mem_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
-                                                            color=self.mem_color
-                                                            ))
-        self.label_mem_color.configure(image=self.image_mem_color)
+    # @mem_color.setter
+    # def mem_color(self, color):
+    #     self._mem_color = color
+    #     self.image_mem_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
+    #                                                         color=self.mem_color
+    #                                                         ))
+    #     self.label_mem_color.configure(image=self.image_mem_color)
 
-    @property
-    def cell_color(self):
-        """Current color set for cell"""
-        return self._cell_color
+    # @property
+    # def cell_color(self):
+    #     """Current color set for cell"""
+    #     return self._cell_color
 
-    @cell_color.setter
-    def cell_color(self, color):
-        self._cell_color = color
-        self.image_cell_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
-                                                            color=self.cell_color
-                                                            ))
-        self.label_cell_color.configure(image=self.image_cell_color)
+    # @cell_color.setter
+    # def cell_color(self, color):
+    #     self._cell_color = color
+    #     self.image_cell_color = ImageTk.PhotoImage(Image.new('RGB', (30,30),
+    #                                                         color=self.cell_color
+    #                                                         ))
+    #     self.label_cell_color.configure(image=self.image_cell_color)
+
+    def clip_mode_buttons(self):
+        """
+        Switch to clip mode button state
+        """
+        for widget in self.normal_disabled:
+            widget.state(['!disabled'])
+        for widget in self.clip_disabled:
+            widget.state(['disabled'])
+
+    def normal_mode_buttons(self):
+        """
+        Switch to normal mode button state
+        """
+        for widget in self.normal_disabled:
+            widget.state(['disabled'])
+        for widget in self.clip_disabled:
+            widget.state(['!disabled'])
+
 
     @property
     def list_items(self):
@@ -345,6 +419,10 @@ class Console(Process):
                         '\nPress Apply(Enter) when finished\n*Recommend applying every time')
                 elif k == MODE_NONE:
                     self._draw_mode_var.set(self._default_draw_mode_str)
+                elif k == MODE_CLIP:
+                    self.clip_mode_buttons()
+                elif k == MODE_CANCEL_CLIP:
+                    self.normal_mode_buttons()
                 elif k == MODE_FILL_CELL:
                     self._draw_mode_var.set('Click to fill a cell')
                 elif k == MODE_FILL_MP_RATIO:
@@ -355,6 +433,4 @@ class Console(Process):
                     self.list_items = v
                 elif k == MESSAGE_BOX:
                     self.message_box(v)
-                elif k == TF_PROG:
-                    self.prog.set(v)
         self.root.after(16, self.update)
