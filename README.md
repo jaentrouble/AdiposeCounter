@@ -45,7 +45,9 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 8. Press **Confirm**
 
     *- The image returns to the original image. A puple box is shown around the cell you just counted.*
-    *- You can hide or show the box with **Hide Box / Show Box** button
+    
+    *- You can hide or show the box with **Hide Box / Show Box** button*
+    
     *- The yellow cell mask will disappear, but the area is still in the list.*
 
 9. You can select a value from the list and **Delete** it. It will also delete the box around the counted cell.
