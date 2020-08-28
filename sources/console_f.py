@@ -12,18 +12,16 @@ from tkinter import messagebox
 def button_draw_box_f(q) :
     q.put({DRAW_BOX:None})
 
-def button_cancel_clip_f(q) :
-    q.put({MODE_CANCEL_CLIP:None})
+def button_cancel_box_f(q) :
+    q.put({MODE_CANCEL_BOX:None})
 
 def button_set_new_mask_f(q):
     q.put({NEWMASK:None})
 
 def button_ratio_f(ratio, q):
-    print(ratio.get())
-    answer = messagebox.askyesno(message='This will reset your mask.\
-        \nContinue?')
-    if answer:
-        q.put({SET_RATIO:ratio.get()})
+    # answer = messagebox.askyesno(message='This will reset your mask.\
+    #     \nContinue?')
+    q.put({SET_RATIO:ratio.get()})
 
 def button_confirm_f(q):
     q.put({MODE_CONFIRM_CLIP:None})
