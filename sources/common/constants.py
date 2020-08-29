@@ -72,6 +72,7 @@ MESSAGE_BOX = 601
 
 # Use same numbers as pygame.K_* + 1000
 K_Z = 1122
+K_B = 1098
 K_ENTER = 1013
 K_ESCAPE = 1027
 

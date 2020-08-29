@@ -660,6 +660,7 @@ class Engine(Process):
                     #     self.mode = MODE_SET_CELL
                     # Box Drawing
                     elif k == DRAW_BOX:
+                        # Note: Same thing should be in K_B (keyboard shortcut)
                         self.mode = MODE_DRAW_BOX
                         self._etcQ.put({CROSS_CURSOR_ON:None})
                         self._updated = True
@@ -760,13 +761,19 @@ class Engine(Process):
                         #     self.draw_undo()
                         # elif self.mode == MODE_FILL_CELL:
                         #     self.fill_undo()
-                        pass
+                        self.fill_delete([-1])
+                    elif k == K_B:
+                        self.mode = MODE_DRAW_BOX
+                        self._etcQ.put({CROSS_CURSOR_ON:None})
+                        self._updated = True
                     elif k == K_ENTER:
-                        if self.mode == MODE_DRAW_MEM or\
-                        self.mode == MODE_DRAW_CELL:
-                            self.draw_apply()
+                        # if self.mode == MODE_DRAW_MEM or\
+                        # self.mode == MODE_DRAW_CELL:
+                        #     self.draw_apply()
+                        pass
                     elif k == K_ESCAPE:
                         self.mode = None
+
 
             if self._updated:
                 self.put_image()
