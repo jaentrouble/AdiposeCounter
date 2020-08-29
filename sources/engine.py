@@ -160,6 +160,7 @@ class Engine(Process):
         self._always_on_layers = []
         self._clipped_imgs = []
         self._clipped_masks = []
+        self._data = []
         self._is_drawing = False
         self._line_start_pos = None
         self._box_start_pos = None
