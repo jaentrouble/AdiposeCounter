@@ -54,6 +54,9 @@ class Engine(Process):
         self._layers = []
         self._cell_layers = []
         self._cell_counts = []
+        # To viewer (x, y)
+        self._cell_pos = []
+
         self._always_on_layers = []
         self._is_drawing = False
         self._line_start_pos = None
@@ -157,6 +160,7 @@ class Engine(Process):
         self._layers = []
         self._cell_layers = []
         self._cell_counts = []
+        self._cell_pos = []
         self._box_layers = []
         self._always_on_layers = []
         self._clipped_imgs = []
@@ -242,6 +246,9 @@ class Engine(Process):
         self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)**2
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
+        self._etcQ.put({
+            POS_LIST:zip(self._cell_pos, area_list)
+            })
 
     def draw_box_start(self, pos):
         """
@@ -297,6 +304,12 @@ class Engine(Process):
         np.add(yy, c0, out=yy)
         self._cell_layers.append((color,(xx, yy)))
         self._cell_counts.append(len(xx))
+
+        # To viewer (position of cell)
+        avgx = np.average(xx)
+        avgy = np.average(yy)
+        self._cell_pos.append((avgx, avgy))
+
         datum = {}
         datum['box'] = [[r0,c0],[r1,c1]]
         datum['mask'] = [xx.tolist(), yy.tolist()]
@@ -340,8 +353,8 @@ class Engine(Process):
             for idx in indices:
                 self._cell_layers.pop(idx)
                 self._cell_counts.pop(idx)
+                self._cell_pos.pop(idx)
                 self._data.pop(idx)
-                # self._box_layers.pop(idx)
             self._updated = True
 
     def fill_save(self, excel_dir, image_name, image_folder):

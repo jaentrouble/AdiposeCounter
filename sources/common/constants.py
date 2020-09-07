@@ -70,6 +70,9 @@ CROSS_CURSOR_OFF = 506
 
 MESSAGE_BOX = 601
 
+POS_LIST = 701
+CHANGE_MP_RATIO = 702
+
 # Use same numbers as pygame.K_* + 1000
 K_Z = 1122
 K_B = 1098

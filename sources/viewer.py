@@ -47,6 +47,10 @@ class Viewer(Process) :
         self._cursor.add(self._allgroup)
         self._big_cursor.add(self._allgroup)
         self._cross_cursor.add(self._allgroup)
+
+        self._font = pygame.font.SysFont('Arial', 15)
+        self._cell_areas = []
+
         self._mouse_prev = pygame.mouse.get_pos()
         while mainloop :
             self._clock.tick(self._fps)
@@ -85,6 +89,9 @@ class Viewer(Process) :
                         self._cursor.visible = True
                         self._cross_cursor.visible = False
                         self._cross_cursor.dirty = True
+
+                    elif k == POS_LIST:
+                        self.update_area(v)
             ###escape
             for event in pygame.event.get() :
                 if event.type == pygame.QUIT :
@@ -134,6 +141,22 @@ class Viewer(Process) :
         """
         self._width, self._height = size
 
+    def update_area(self, pos_list):
+        idx = 0
+        for idx, pa in enumerate(pos_list):
+            pos, area = pa
+            if idx >= len(self._cell_areas):
+                new_cell = CellArea(self._font, area, pos)
+                self._allgroup.add(new_cell)
+                self._cell_areas.append(new_cell)
+            else :
+                self._cell_areas[idx].change_area(area, pos)
+                self._cell_areas[idx].visible = True
+                self._cell_areas[idx].dirty = True
+        for ca in self._cell_areas[idx+1:]:
+            ca.visible = False
+            ca.dirty = True
+
     def close(self):
         pygame.quit()
 
@@ -178,6 +201,38 @@ class CrossCursor(pygame.sprite.DirtySprite):
     def update(self):
         self.rect.center = pygame.mouse.get_pos()
         self.dirty = 1
+
+class CellArea(pygame.sprite.DirtySprite):
+    def __init__(self, Font, area, pos):
+        """
+        arguments
+        ---------
+        Font : pygame.font.Font
+            Font object to render texts.
+        area : float
+            Text to show. Will convert to string anyway.
+        pos : tuple
+            (center_x,center_y)
+        """
+        super().__init__()
+        self.font = Font
+        self.area = area
+        self.image = self.font.render(f'{area:.2f}', False,
+                                (255,0,0), (255,255,255))
+        self.rect = self.image.get_rect()
+        self.rect.center = pos
+        self.dirty = True
+
+    def change_area(self, area, pos):
+        if self.area != area:
+            self.area = area
+            self.image = self.font.render(f'{area:.2f}', False,
+                                    (255,0,0), (255,255,255))
+            self.dirty = True
+        if (pos[0] != self.rect.centerx) or (pos[1] != self.rect.centery):
+            self.rect.center = pos
+            self.dirty = True
+
 
 #testing
 if __name__ == '__main__':
