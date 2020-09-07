@@ -49,7 +49,8 @@ class Engine(Process):
         self._clipped_mode = False
         self._clipped_masks = []
         self._clipped_imgs = []
-        # (Color_of_layer(R,G,B), Bool mask(Width, Height, 1))
+        # (Color_of_layer(R,G,B), (xx, yy))
+        # (xx, yy) = np.nonzero(array)
         self._layers = []
         self._cell_layers = []
         self._cell_counts = []
@@ -214,60 +215,24 @@ class Engine(Process):
 
     def change_mask_ratio(self, ratio:float):
         self._mask_ratio = ratio / 100
-        # self.mask = (self.prob_mask > ratio) * CELL
-        # self._tmp_mask = self.mask
         self.mode = None
-        # self.mask_mode = True
-        # self._layers = []
         msg = f'Ratio set to {self._mask_ratio}'
         self._to_ConsoleQ.put({MESSAGE_BOX:msg})
         self._updated = True
     
     def put_image(self):
-        # if self._clipped_mode :
-        #     if self._mask_mode:
-        #         # To make drawing cell mode faster, fix other layers temporally
-        #         if self.mode == MODE_DRAW_CELL and self._is_drawing:
-        #             tmp_draw_mask = self._tmp_mask.copy()
-        #             for c, m in self._layers:
-        #                 np.multiply(tmp_draw_mask, np.logical_not(m), out=tmp_draw_mask)
-        #                 np.add(tmp_draw_mask, m * np.array(c,np.uint8), out=tmp_draw_mask)
-        #             self._imageQ.put(tmp_draw_mask)
-        #         else :
-        #             self._tmp_mask = self.mask
-        #             for c, m in self._layers:
-        #                 np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
-        #                 np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
-        #             for c, m in self._cell_layers:
-        #                 np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
-        #                 np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
-        #             for c, m in self._always_on_layers:
-        #                 np.multiply(self._tmp_mask, np.logical_not(m), out=self._tmp_mask)
-        #                 np.add(self._tmp_mask, m * np.array(c,np.uint8), out=self._tmp_mask)
-        #             self._imageQ.put(self._tmp_mask)
-        #     else:
-        #         tmp_image = self.image
-        #         for c, m in self._always_on_layers:
-        #             np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-        #             np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
-        #         self._imageQ.put(tmp_image)
-        # else :
         tmp_image = self.image
-        # if self._show_box:
-        #     for c, m in self._always_on_layers:
-        #         np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-        #         np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
-        #     for c, m in self._box_layers:
-        #         np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-        #         np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
         for c, m in self._always_on_layers:
-            np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-            np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
+            # np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
+            # np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
+            xx, yy = m
+            tmp_image[xx, yy] = c
         if self._mask_mode:
             for c, m in self._cell_layers:
-                np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-                np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
-
+                # np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
+                # np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
+                xx, yy = m
+                tmp_image[xx, yy] = c
         self._imageQ.put(tmp_image)
 
     def put_mode(self):
@@ -282,27 +247,17 @@ class Engine(Process):
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         self._to_ConsoleQ.put({FILL_LIST:area_list})
 
-    # def set_mem_color(self, pos):
-    #     x,y = pos
-    #     new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
-    #     self.mem_color = new_color
-
-    # def set_cell_color(self, pos):
-    #     x,y = pos
-    #     new_color = self.image[x-2:x+3,y-2:y+3].mean(axis=(0,1)).astype(np.uint8)
-    #     self.cell_color = new_color
-
     def draw_box_start(self, pos):
         """
         Make a new layer and draw initial point (Red dot)
         """
-        new_layer = np.zeros((self.shape[0],self.shape[1],1),
+        new_layer = np.zeros((self.shape[0],self.shape[1]),
                              dtype=np.bool)
         color = BOX_START
         x, y = pos
         new_layer[:, y] = True
         new_layer[x,:] = True
-        self._always_on_layers.append((color, new_layer))
+        self._always_on_layers.append((color, np.nonzero(new_layer)))
         self._box_start_pos = pos
         self._is_drawing = True
         self._updated = True
@@ -323,10 +278,11 @@ class Engine(Process):
         """
         Draw Box
         """
-        _, last_layer = self._always_on_layers.pop()
+        self._always_on_layers.pop()
         color = np.random.randint(0,255,3)
-        new_layer = np.zeros_like(last_layer)
-        del last_layer
+        # new_layer = np.zeros((self.shape[0],self.shape[1]),
+        #                      dtype=np.bool)
+        # del last_layer
         x0, y0 = self._box_start_pos
         x1, y1 = pos
         r0, c0 = min(x0, x1), min(y0, y1)
@@ -338,14 +294,16 @@ class Engine(Process):
         prob_mask = resize(raw_output, clipped_image.shape[:2], 
                         preserve_range=True, anti_aliasing=True)
         mask = (prob_mask > self._mask_ratio)
-        np.add(new_layer[r0:r1,c0:c1], mask[...,np.newaxis], 
-                out=new_layer[r0:r1,c0:c1])
-        self._cell_layers.append((color,new_layer))
-        # self._box_layers.append((color, new_layer))
-        self._cell_counts.append(np.sum(mask))
+        # np.add(new_layer[r0:r1,c0:c1], mask, 
+        #         out=new_layer[r0:r1,c0:c1])
+        xx, yy = np.nonzero(mask)
+        np.add(xx, r0, out=xx)
+        np.add(yy, c0, out=yy)
+        self._cell_layers.append((color,(xx, yy)))
+        self._cell_counts.append(len(xx))
         datum = {}
         datum['box'] = [[r0,c0],[r1,c1]]
-        datum['mask'] = [m.tolist() for m in np.nonzero(np.squeeze(new_layer))]
+        datum['mask'] = [xx.tolist(), yy.tolist()]
         datum['size'] = self.image.shape[:2]
         self._data.append(datum)
         self._mask_mode = True
@@ -353,206 +311,15 @@ class Engine(Process):
         self._is_drawing = False
         self.mode = None
         self._etcQ.put({CROSS_CURSOR_OFF:None})
-        # self._show_box = True
-        # self.clip_image((r0,c0),(r1,c1))
         self._updated = True
 
-    # def clip_image(self, pos1, pos2):
-    #     """
-    #     clip image between two points in rect.
-    #     order does not matter
-    #     """
-    #     self._backup_image = self.image
-    #     x0, y0 = pos1
-    #     x1, y1 = pos2
-    #     r0, c0 = min(x0, x1), min(y0, y1)
-    #     r1, c1 = max(x0, x1), max(y0, y1)
-    #     self.image = self._backup_image[r0:r1,c0:c1]
-    #     self._clipped_mode = True
-    #     self._to_ConsoleQ.put({MODE_CLIP:None})
-    #     self._updated = True
-
-    # def _clip_exit(self):
-    #     """
-    #     Reset layers and get back to original image.
-    #     Careful : This does not save calculated data.
-    #     """
-    #     self.image = self._backup_image
-    #     self._clipped_mode = False
-    #     self._layers = []
-    #     self._cell_layers = []
-    #     self._to_ConsoleQ.put({MODE_CANCEL_CLIP:None})
-    #     self.mask_mode = False
-    #     self.mode = None
-    #     self._updated = True
-
-    # def clip_cancel(self) :
-    #     """
-    #     Calls _clip_exit and erase the box too.
-    #     """
-    #     if self._clipped_mode:
-    #         self._clip_exit()
-    #         if len(self._cell_layers) >0:
-    #             self.fill_delete([-1])
-    #         else: 
-    #             self._box_layers.pop()
-    #         self._updated = True
-
-    # def clip_confirm(self):
-    #     if self._clipped_mode:
-    #         if len(self._cell_layers) > 0 :
-    #             self._clipped_masks.append(self._tmp_mask)
-    #             self._clipped_imgs.append(self.image)
-    #             self._clip_exit()
-    #         # If press confirm without filling any cells, just cancel
-    #         else :
-    #             self.clip_cancel()
-
-    # def draw_mem_start(self, pos):
-    #     """
-    #     Make a new layer and draw inital point (Red dot)
-    #     """
-    #     new_layer = np.zeros((self.shape[0],self.shape[1],1),
-    #                          dtype=np.bool)
-    #     color = LINE_START
-    #     x, y = pos
-    #     new_layer[x:x+3, y:y+3] = True
-    #     self._layers.append((color, new_layer))
-    #     self._line_start_pos = pos
-    #     self._is_drawing = True
-    #     self._updated = True
-
-    # def draw_mem_end(self, pos):
-    #     """
-    #     Draw the line and start next line
-    #     """
-    #     _, last_layer = self._layers.pop()
-    #     new_layer = np.zeros_like(last_layer)
-    #     color = MEMBRANE
-    #     del last_layer
-    #     r0, c0 = self._line_start_pos
-    #     r1, c1 = pos
-    #     rr, cc, _ = draw.line_aa(r0, c0, r1, c1)
-    #     new_layer[rr, cc] = True
-    #     self._layers.append((color, new_layer))
-    #     self._line_start_pos = None
-    #     self.draw_mem_start(pos)
-    #     self._updated = True
-        
-    # def draw_stop(self):
-    #     """
-    #     Stop connecting lines; Similar to draw_undo
-    #     """
-    #     if self._is_drawing :
-    #         self._layers.pop()
-    #         self._is_drawing = False
-    #         self._line_start_pos = None
-    #         self._updated=True
-
-    # def draw_apply(self):
-    #     if self._is_drawing:
-    #         self.draw_stop()
-    #     tmp_mask = self.mask
-    #     for c, m in self._layers:
-    #         np.multiply(tmp_mask, np.logical_not(m), out=tmp_mask)
-    #         np.add(tmp_mask, m * np.array(c,np.uint8), out=tmp_mask)
-    #     self._layers = []
-    #     self.mask = tmp_mask
-    #     self._updated = True
-
-    # def draw_undo(self):
-    #     if len(self._layers)>0 :
-    #         self._layers.pop()
-    #         self._is_drawing = False
-    #         self._line_start_pos = None
-    #         self._updated = True
-
-    # def draw_cancel(self):
-    #     self._layers = []
-    #     self._is_drawing = False
-    #     self._line_start_pos = None
-    #     self.mode = None
-    #     self._updated = True
-
-    # def draw_cell_mode_init(self):
-    #     """
-    #     When draw_cell mode started, not when clicked
-    #     Call once
-    #     """
-    #     self._is_drawing = False
-    #     self._updated = True
-
-
-    # def draw_cell_start(self, pos):
-    #     new_layer = np.zeros((self.shape[0],self.shape[1],1),
-    #                          dtype=np.bool)
-    #     color = CELL
-    #     new_layer[pos[0]-5:pos[0]+6,pos[1]-5:pos[1]+6] = True
-    #     self._layers.append((color, new_layer))
-    #     self._is_drawing = True
-    #     self._updated = True
-    #     self._etcQ.put({BIG_CURSOR_ON:None})
-    #     self._etcQ.put({MOUSEPOS_ON:None})
-
-    # def draw_cell_continue(self, pos):
-    #     _, last_layer = self._layers[-1]
-    #     last_layer[pos[0]-5:pos[0]+6,pos[1]-5:pos[1]+6] = True
-    #     self._updated = True
-
-    # def draw_cell_end(self):
-    #     self._is_drawing = False
-    #     self._updated = True
-    #     self._etcQ.put({BIG_CURSOR_OFF:None})
-    #     self._etcQ.put({MOUSEPOS_OFF:None})
-
-    # def fill_cell(self, pos):
-    #     new_layer = np.zeros((self.shape[0],self.shape[1],1),
-    #                          dtype=np.bool)
-    #     pos_stack = [pos]
-    #     mask = self.mask
-    #     pix_count = 0
-    #     while len(pos_stack) > 0:
-    #         x, y = pos_stack.pop()
-    #         while (mask[x,y] == CELL).all() and x>=0:
-    #             x -= 1
-    #         x += 1
-    #         above, below = False, False
-    #         while x < self.shape[0] and (mask[x,y]==CELL).all():
-    #             mask[x,y] = COUNT
-    #             new_layer[x,y] = True
-    #             pix_count += 1
-    #             if (not above) and (y>0) and (mask[x,y-1]==CELL).all():
-    #                 pos_stack.append([x,y-1])
-    #                 above = True
-    #             elif (above) and (y>0) and (mask[x,y-1]!=CELL).any():
-    #                 above = False
-    #             if (not below) and (y<self.shape[1]-1) and (mask[x,y+1]==CELL).all():
-    #                 pos_stack.append([x,y+1])
-    #                 below = True
-    #             elif (below) and (y<self.shape[1]-1) and (mask[x,y+1]!=CELL).any():
-    #                 below = False
-    #             x += 1
-    #     # Only one cell per clip
-    #     if len(self._cell_layers) > 0:
-    #         self._cell_layers.pop()
-    #         self._cell_counts.pop()
-    #     self._cell_layers.append((COUNT, new_layer))
-    #     self._cell_counts.append(pix_count)
-    #     self._updated = True
-    
-    # def fill_undo(self):
-    #     if len(self._cell_layers) > 0: 
-    #         self._cell_layers.pop()
-    #         self._cell_counts.pop()
-    #         self._updated = True
-
     def fill_ratio_start(self, pos):
-        new_layer = np.zeros((self.shape[0],self.shape[1],1),
+        new_layer = np.zeros((self.shape[0],self.shape[1]),
                              dtype=np.bool)
         color = LINE_START
         x, y = pos
         new_layer[x-2:x+3, y-2:y+3] = True
-        self._always_on_layers.append((color, new_layer))
+        self._always_on_layers.append((color, np.nonzero(new_layer)))
         self._mp_ratio_start_pos = pos
         self._is_drawing = True
         self._updated = True
@@ -620,18 +387,6 @@ class Engine(Process):
         with open(str(filename_data), 'w') as f:
             json.dump(self._data, f, indent=4)
 
-        # for i, mask, img in zip(range(len(self._clipped_imgs)), 
-        #                         self._clipped_masks,
-        #                         self._clipped_imgs):
-        #     mask_save = Image.fromarray(mask.swapaxes(0,1))
-        #     img_save = Image.fromarray(img.swapaxes(0,1))
-        #     mask_name = image_name + str(i+start_num) + '_mask.png'
-        #     img_name = image_name + str(i+start_num) + '.png'
-        #     filename_mask = os.path.join(mask_folder, mask_name)
-        #     filename_img = os.path.join(img_folder, img_name)
-        #     mask_save.save(filename_mask)
-        #     img_save.save(filename_img)
-
 
     def run(self):
         mainloop = True
@@ -653,47 +408,17 @@ class Engine(Process):
                         self.mask_mode = False
                     elif k == MODE_MASK:
                         self.mask_mode = True
-                    # # Set colors & ratio
-                    # elif k == SET_MEM:
-                    #     self.mode = MODE_SET_MEM
-                    # elif k == SET_CELL:
-                    #     self.mode = MODE_SET_CELL
                     # Box Drawing
                     elif k == DRAW_BOX:
-                        # Note: Same thing should be in K_B (keyboard shortcut)
+                        # NOTE: Same thing should be in K_B (keyboard shortcut)
                         self.mode = MODE_DRAW_BOX
                         self._etcQ.put({CROSS_CURSOR_ON:None})
                         self._updated = True
-                    # elif k == MODE_CANCEL_CLIP:
-                    #     self.clip_cancel()
                     elif k == SET_RATIO:
-                        # self.mask_mode = True
                         self.change_mask_ratio(v)
-                    # elif k == MODE_CONFIRM_CLIP:
-                    #     self.clip_confirm()
-                    # elif k == MODE_SHOW_BOX:
-                    #     self._show_box = True
-                    #     self._updated = True
-                    # elif k == MODE_HIDE_BOX:
-                    #     self._show_box = False
-                    #     self._updated = True
                     elif k == MODE_CANCEL_BOX:
                         self.mode = None
-                    #Drawing modes
-                    # elif k == DRAW_MEM:
-                    #     self.mode = MODE_DRAW_MEM
-                    #     self._updated = True
-                    # elif k == DRAW_CELL:
-                    #     self.mode = MODE_DRAW_CELL
-                    #     self.draw_cell_mode_init()
-                    # elif k == DRAW_OFF:
-                    #     self.draw_apply()
-                    # elif k == DRAW_CANCEL:
-                    #     self.draw_cancel()
                     #Counting modes
-                    # elif k == FILL_CELL:
-                    #     self.mode = MODE_FILL_CELL
-                    #     self.draw_apply()
                     elif k == FILL_MP_RATIO:
                         self.mode = MODE_FILL_MP_RATIO
                         self._updated = True
@@ -710,66 +435,32 @@ class Engine(Process):
                 for k,v in q.items():
                     if k == MOUSEDOWN:
                         # v : mouse pos which came from Viewer
-                        # # Set color
-                        # if self.mode == MODE_SET_MEM:
-                        #     self.set_mem_color(v)
-                        #     self._color_mode = None
-                        #     self._to_ConsoleQ.put({SET_MEM:self.mem_color})
-                        # elif self.mode == MODE_SET_CELL:
-                        #     self.set_cell_color(v)
-                        #     self._color_mode = None
-                        #     self._to_ConsoleQ.put({SET_CELL:self.cell_color})
                         # Box mode
                         if self.mode == MODE_DRAW_BOX:
                             if not self._is_drawing:
                                 self.draw_box_start(v)
                             else:
                                 self.draw_box_end(v)
-                        # Drawing mode
-                        # elif self.mode == MODE_DRAW_MEM:
-                        #     if not self._is_drawing:
-                        #         self.draw_mem_start(v)
-                        #     else:
-                        #         self.draw_mem_end(v)
-                        # elif self.mode == MODE_DRAW_CELL:
-                        #     self.draw_cell_start(v)
                         # # Counting mode
-                        # elif self.mode == MODE_FILL_CELL:
-                        #     self.fill_cell(v)
                         elif self.mode == MODE_FILL_MP_RATIO:
                             if not self._is_drawing:
                                 self.fill_ratio_start(v)
                             else :
                                 self.fill_ratio_end(v)
                     elif k == MOUSEDOWN_RIGHT:
-                        # if self.mode == MODE_DRAW_MEM:
-                        #     self.draw_stop()
                         pass
                     elif k == MOUSEUP:
-                        # if self.mode == MODE_DRAW_CELL:
-                        #     self.draw_cell_end()
                         pass
                     elif k == MOUSEPOS:
-                        # if self.mode == MODE_DRAW_CELL:
-                        #     if self._is_drawing:
-                        #         self.draw_cell_continue(v)
                         pass
                     # Keyboard events
                     elif k == K_Z:
-                        # if self.mode == MODE_DRAW_CELL or\
-                        #     self.mode == MODE_DRAW_MEM:
-                        #     self.draw_undo()
-                        # elif self.mode == MODE_FILL_CELL:
-                        #     self.fill_undo()
                         self.fill_delete([-1])
                     elif k == K_B:
                         self.mode = MODE_DRAW_BOX
                         self._etcQ.put({CROSS_CURSOR_ON:None})
                         self._updated = True
                     elif k == K_ENTER:
-                        # if self.mode == MODE_DRAW_MEM or\
-                        # self.mode == MODE_DRAW_CELL:
-                        #     self.draw_apply()
                         pass
                     elif k == K_ESCAPE:
                         self.mode = None
