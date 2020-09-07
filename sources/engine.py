@@ -222,17 +222,13 @@ class Engine(Process):
     
     def put_image(self):
         tmp_image = self.image
-        for c, m in self._always_on_layers:
-            # np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-            # np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
-            xx, yy = m
-            tmp_image[xx, yy] = c
         if self._mask_mode:
             for c, m in self._cell_layers:
-                # np.multiply(tmp_image, np.logical_not(m), out=tmp_image)
-                # np.add(tmp_image, m * np.array(c,np.uint8), out=tmp_image)
                 xx, yy = m
                 tmp_image[xx, yy] = c
+        for c, m in self._always_on_layers:
+            xx, yy = m
+            tmp_image[xx, yy] = c
         self._imageQ.put(tmp_image)
 
     def put_mode(self):
