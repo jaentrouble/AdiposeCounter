@@ -1,5 +1,8 @@
 # AdiposeCounter
 
+![image](https://user-images.githubusercontent.com/45917844/92430253-3355b280-f1cf-11ea-9137-7dc9920f7876.png)
+
+
 Counting adipose cells area
 
 ## Install
@@ -21,11 +24,11 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 
 2. Press **Box** or keyboard shortcut **B**
 
-    *- Click two diagonal Vertex of imaginary box around a cell*
+    -*Click two diagonal Vertex of imaginary box around a cell*
  
 3. Than the cell inside the box will be colored.
 
-    *- It will recognize only one cell per a box*
+    -*It will recognize only one cell per a box*
 
     3-1. You can change filling strength by changing the ratio. Default is 50.
     
@@ -33,18 +36,19 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 
 4. Use **Set Length** to modify pixel-to-area ratio. 
 
-    *-The default value is empirical value when the image is 1600\*1200 with 50μm standard*
+    -*The default value is empirical value when the image is 1600\*1200 with 50μm standard*
 
 5. You can hide or show the box with **Hide mask / Show mask** button.
 
 6. You can select a value from the list and **Delete** it.
 
 7. Press **Save** and select desired Excel(\*.xlsx) file to save the area list. This will also save .json data to *dir_to_image\\save\\*
-    *-This JSON data holds information about the box and the filled cells. If you do not need it, it's safe to delete them*
+
+    -*This JSON data holds information about the box and the filled cells. If you do not need it, it's safe to delete them*
 
 8. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
 
-    *-You need to save __PER__ image.*
+    -*You need to save __PER__ image.*
 
 ## Key bindings
 
@@ -56,3 +60,5 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
   
   - Do not edit or open the excel file you are trying to save to while saving. This might cause saving error.
  
+## Reference
+[1] HRNet-Semantic-Segmentation https://github.com/HRNet/HRNet-Semantic-Segmentation
