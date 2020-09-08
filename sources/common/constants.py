@@ -30,6 +30,7 @@ MODE_HIDE_BOX = 21
 MODE_CANCEL_CLIP = 22
 MODE_CLIP = 23
 MODE_CONFIRM_CLIP = 24
+MODE_CANCEL_BOX = 25
 
 SET_MEM = 100
 SET_CELL = 101
@@ -69,9 +70,14 @@ CROSS_CURSOR_OFF = 506
 
 MESSAGE_BOX = 601
 
+POS_LIST = 701
+CHANGE_MP_RATIO = 702
+
 # Use same numbers as pygame.K_* + 1000
 K_Z = 1122
+K_B = 1098
 K_ENTER = 1013
+K_ESCAPE = 1027
 
 # Console Constants ###########################################################
 IMAGE_FORMATS = ('.jpg', '.png', '.jpeg', '.tif', '.tiff')
