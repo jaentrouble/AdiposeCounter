@@ -56,3 +56,5 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
   
   - Do not edit or open the excel file you are trying to save to while saving. This might cause saving error.
  
+## Reference
+[1] HRNet-Semantic-Segmentation https://github.com/HRNet/HRNet-Semantic-Segmentation
