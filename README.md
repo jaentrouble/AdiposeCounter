@@ -63,6 +63,9 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
  
 ## Reference
 [1] HRNet-Semantic-Segmentation https://github.com/HRNet/HRNet-Semantic-Segmentation
+
 [2] TensorFlow www.tensorflow.org
+
 [3] Pygame www.pygame.org
+
 [3] Python www.python.org
