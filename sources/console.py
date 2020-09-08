@@ -7,6 +7,8 @@ from multiprocessing import Process, Queue
 from .common.constants import *
 import os
 from tkinter import filedialog, messagebox
+from . import iconarray
+import numpy as np
 
 class Console(Process):
     """
@@ -27,6 +29,12 @@ class Console(Process):
     def initiate(self):
         self.root = tk.Tk()
         self.root.title('Adipose Counter')
+
+        array = np.array(iconarray.icon_array, dtype=np.uint8)
+        icon_img = Image.fromarray(array)
+        icon_tk = ImageTk.PhotoImage(icon_img)
+        self.root.iconphoto(False, icon_tk)
+
         self.mainframe = ttk.Frame(self.root, padding='3 3 12 12')
         self.mainframe.grid(column=0, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
         self.root.columnconfigure(0, weight=1)

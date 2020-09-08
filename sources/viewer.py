@@ -3,6 +3,7 @@ import numpy as np
 from multiprocessing import Queue
 from multiprocessing import Process
 from .common.constants import *
+from . import iconarray
 
 class Viewer(Process) :
     """
@@ -38,7 +39,18 @@ class Viewer(Process) :
         mainloop = True
         pygame.init()
         self._clock = pygame.time.Clock()
+
+        icon_surface = pygame.Surface((32,32))
+        icon_array = np.array(iconarray.icon_array).swapaxes(0,1)
+        pygame.surfarray.blit_array(icon_surface, icon_array)
+        
+        # Don't know why, but setting any colorkey shows properly
+        icon_surface.set_colorkey((255,255,0))
+        pygame.display.set_icon(icon_surface)
+
         self._screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
+        pygame.display.set_caption('Adipose Counter')
+
         self._background = pygame.Surface(self.size)
         self._allgroup = pygame.sprite.LayeredDirty()
         self._cursor = Cursor()
