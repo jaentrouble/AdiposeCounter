@@ -1,6 +1,7 @@
 # AdiposeCounter
 
-![image](https://user-images.githubusercontent.com/45917844/92430253-3355b280-f1cf-11ea-9137-7dc9920f7876.png)
+![image](https://user-images.githubusercontent.com/45917844/92435984-8edb6c80-f1de-11ea-9faa-58c0d094d650.png)
+
 
 
 Counting adipose cells area
