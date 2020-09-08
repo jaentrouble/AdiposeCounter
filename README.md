@@ -1,6 +1,7 @@
 # AdiposeCounter
 
-![image](https://user-images.githubusercontent.com/45917844/92430253-3355b280-f1cf-11ea-9137-7dc9920f7876.png)
+![image](https://user-images.githubusercontent.com/45917844/92435984-8edb6c80-f1de-11ea-9faa-58c0d094d650.png)
+
 
 
 Counting adipose cells area
@@ -18,7 +19,7 @@ Both versions do not need extra installation steps and are portable.
 Install from the link below (Only tested with x64)
 https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads
 
-## How to use (v2.1.0)
+## How to use (v2.1)
 
 1. Open folder
 
@@ -62,3 +63,9 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
  
 ## Reference
 [1] HRNet-Semantic-Segmentation https://github.com/HRNet/HRNet-Semantic-Segmentation
+
+[2] TensorFlow www.tensorflow.org
+
+[3] Pygame www.pygame.org
+
+[3] Python www.python.org
