@@ -40,6 +40,7 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 6. You can select a value from the list and **Delete** it.
 
 7. Press **Save** and select desired Excel(\*.xlsx) file to save the area list. This will also save .json data to *dir_to_image\\save\\*
+
     -*This JSON data holds information about the box and the filled cells. If you do not need it, it's safe to delete them*
 
 8. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
