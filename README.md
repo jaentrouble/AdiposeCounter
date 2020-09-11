@@ -1,6 +1,6 @@
 # AdiposeCounter
 
-![image](https://user-images.githubusercontent.com/45917844/92435984-8edb6c80-f1de-11ea-9faa-58c0d094d650.png)
+![image](https://user-images.githubusercontent.com/45917844/92935104-4e504d00-f483-11ea-959d-c935aa4b39a4.png)
 
 
 
