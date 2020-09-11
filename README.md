@@ -7,6 +7,11 @@
 Counting adipose cells area
 
 ## Install
+
+Download from Releases
+
+https://github.com/jaentrouble/AdiposeCounter/releases
+
 - .exe file
 - .7z compressed folder
 
