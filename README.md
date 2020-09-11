@@ -20,6 +20,9 @@ Install from the link below (Only tested with x64)
 
 https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads
 
+![image](https://user-images.githubusercontent.com/45917844/92934509-886d1f00-f482-11ea-91c1-9ab98c7306de.png)
+
+
 ## How to use (v2.1)
 
 1. Open folder
