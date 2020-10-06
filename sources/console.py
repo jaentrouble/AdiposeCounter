@@ -48,7 +48,9 @@ class Console(Process):
         self._fill_ratio_var = tk.StringVar(
             value=f'{DEFAULT_MP_RATIO:.4f}μ㎡/pixel')
         self._micro_var = tk.StringVar(value=DEFAULT_MP_MICRO)
-        self._pixel_var = tk.StringVar(value=DEFAULT_MP_PIXEL)
+        self._pixel_var = tk.StringVar(value=DEFAULT_MP_PIXEL_ORIGINAL)
+
+        self._save_type_var = tk.StringVar()
 
         # # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
@@ -115,9 +117,13 @@ class Console(Process):
         # Configure Bottom-Left Draw menu #####################################
         self.frame_draw = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_draw.grid(column=0, row=1, sticky=(tk.W, tk.S))
+        self.button_screenshot = ttk.Button(self.frame_draw,
+                                            text='Save Screenshot',
+                                            command=self.button_screenshot_f)
+        self.button_screenshot.grid(column=0, row=0)
         self.label_draw_mode = ttk.Label(self.frame_draw,
                                          textvariable=self._draw_mode_var)
-        self.label_draw_mode.grid(column=0, row=0)
+        self.label_draw_mode.grid(column=0, row=1)
 
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
@@ -249,6 +255,20 @@ class Console(Process):
                 })
                 self._img_name_var.set(self._image_name_list[self._image_idx])
 
+    def button_screenshot_f(self):
+        default_name = os.path.splitext(self._image_name_list[self._image_idx])[0]
+        default_name = default_name + '_screenshot'
+        screenshot_path = filedialog.asksaveasfilename(title='Save screenshot as',
+                            filetypes=[('.png','*.png'),
+                                        ('.jpg','*.jpg')],
+                            initialfile=default_name,
+                            typevariable=self._save_type_var)
+        if screenshot_path == '':
+            self.message_box('Screenshot not saved')
+        else:
+            save_type = self._save_type_var.get()
+            self._to_EngineQ.put({FILL_SCREENSHOT:screenshot_path+save_type})
+
     def button_draw_cancel_f(self):
         answer = messagebox.askyesno(message='This will delete all unapplied drawings.\
             \nContinue?')
@@ -269,6 +289,7 @@ class Console(Process):
             self._to_EngineQ.put({FILL_SAVE:(save_dir, 
                                 self._image_name_list[self._image_idx],
                                 self._image_folder)})
+        self.button_screenshot_f()
 
     def spinbox_fill_micro_change(self, *args):
         val = self._micro_var.get()
@@ -292,8 +313,8 @@ class Console(Process):
             if pixel<=0:
                 raise ValueError
         except ValueError:
-            self._pixel_var.set(DEFAULT_MP_PIXEL)
-            pixel = DEFAULT_MP_PIXEL
+            self._pixel_var.set(DEFAULT_MP_PIXEL_ORIGINAL)
+            pixel = DEFAULT_MP_PIXEL_ORIGINAL
             self.message_box('Only positive numbers are allowed')
         self._to_EngineQ.put({FILL_PIXEL:pixel})
 

@@ -1,6 +1,7 @@
 import numpy as np
 from multiprocessing import Process, Queue
 from PIL import Image
+import cv2
 from .common.constants import *
 from skimage import draw
 from skimage.transform import resize
@@ -64,8 +65,8 @@ class Engine(Process):
         # Modes related to filling
         # Ratio = (micrometer / pixel)**2  -> Because it's area ratio
         self._mp_ratio = DEFAULT_MP_RATIO
-        self._mp_ratio_pixel = DEFAULT_MP_PIXEL
-        self._mp_ratio_pixel_original = DEFAULT_MP_PIXEL
+        self._mp_ratio_pixel = DEFAULT_MP_PIXEL_ORIGINAL * DEFAULT_RESIZED_RATIO
+        self._mp_ratio_pixel_original = DEFAULT_MP_PIXEL_ORIGINAL
         self._mp_ratio_micrometer = DEFAULT_MP_MICRO
         self._resized_ratio = DEFAULT_RESIZED_RATIO
         # Data to save
@@ -87,7 +88,7 @@ class Engine(Process):
             raise TypeError('Inappropriate shape of image')
         self._image = image.astype(np.uint8)
         self._shape = self._image.shape
-        self.set_empty_mask()
+        # self.set_empty_mask()
         self._updated = True
 
     @property
@@ -98,21 +99,21 @@ class Engine(Process):
         """
         return self._shape
 
-    @property
-    def mask(self):
-        """
-        This is the mask on which engine computes
-        """
-        return self._mask.copy()
+    # @property
+    # def mask(self):
+    #     """
+    #     This is the mask on which engine computes
+    #     """
+    #     return self._mask.copy()
 
-    @mask.setter
-    def mask(self, mask:np.array):
-        """
-        Must be a shape of (width, height, 3) and same as current image
-        """
-        if mask.shape != self.shape:
-            raise TypeError('Inappropriate shape of mask')
-        self._mask = mask.astype(np.uint8)
+    # @mask.setter
+    # def mask(self, mask:np.array):
+    #     """
+    #     Must be a shape of (width, height, 3) and same as current image
+    #     """
+    #     if mask.shape != self.shape:
+    #         raise TypeError('Inappropriate shape of mask')
+    #     self._mask = mask.astype(np.uint8)
 
     @property
     def cell_color(self):
@@ -178,6 +179,7 @@ class Engine(Process):
     def load_image(self, path:str):
         im = Image.open(path)
         self._original_size = im.size
+        self._original_image = np.asarray(im)
         o_width, o_height = im.size
         if o_width*4 >= o_height*3:
             # if wider than taller, fix width to 1200
@@ -192,32 +194,32 @@ class Engine(Process):
         self.reset()
         self._updated = True
 
-    def set_empty_mask(self):
-        """
-        Set a new empty mask that is the same shape as current image
-        """
-        self.mask = np.zeros_like(self.image)
-        self._updated = True
+    # def set_empty_mask(self):
+    #     """
+    #     Set a new empty mask that is the same shape as current image
+    #     """
+    #     self.mask = np.zeros_like(self.image)
+    #     self._updated = True
 
-    def set_new_mask(self):
-        """
-        ratio : if ratio * dist_to_memcolor > (1-ratio) * dist_to_cellcolor,
-        the pixel is considered as cell
+    # def set_new_mask(self):
+    #     """
+    #     ratio : if ratio * dist_to_memcolor > (1-ratio) * dist_to_cellcolor,
+    #     the pixel is considered as cell
         
-        """
-        # Default ratio
-        ratio = 0.3
-        casted_input = resize(self.image, (200,200), preserve_range=True,
-                            anti_aliasing=True)[np.newaxis,:].astype(np.float32)
-        raw_output = self._mask_model(casted_input).numpy()[0]
-        self.prob_mask = resize(raw_output, self.shape, preserve_range=True,
-                           anti_aliasing=True)
-        self.mask = (self.prob_mask > ratio) * CELL
-        self._tmp_mask = self.mask
-        self.mode = None
-        self.mask_mode = True
-        self._layers = []
-        self._updated = True
+    #     """
+    #     # Default ratio
+    #     ratio = 0.3
+    #     casted_input = resize(self.image, (200,200), preserve_range=True,
+    #                         anti_aliasing=True)[np.newaxis,:].astype(np.float32)
+    #     raw_output = self._mask_model(casted_input).numpy()[0]
+    #     self.prob_mask = resize(raw_output, self.shape, preserve_range=True,
+    #                        anti_aliasing=True)
+    #     self.mask = (self.prob_mask > ratio) * CELL
+    #     self._tmp_mask = self.mask
+    #     self.mode = None
+    #     self.mask_mode = True
+    #     self._layers = []
+    #     self._updated = True
         # ####### DEBUG
         # import matplotlib.pyplot as plt
         # print(casted_input.dtype)
@@ -329,7 +331,7 @@ class Engine(Process):
         datum = {}
         datum['box'] = [[r0,c0],[r1,c1]]
         datum['mask'] = [xx.tolist(), yy.tolist()]
-        datum['size'] = self.image.shape[:2]
+        datum['size'] = self.shape[:2]
         self._data.append(datum)
         self._mask_mode = True
         self._box_start_pos = None
@@ -394,7 +396,7 @@ class Engine(Process):
             self._to_ConsoleQ.put({MESSAGE_BOX:'Failed to Save'})
             return
         else:
-            self._to_ConsoleQ.put({MESSAGE_BOX:'Saved Successfully.'\
+            self._to_ConsoleQ.put({MESSAGE_BOX:'Excel file Saved Successfully.'\
                 '\nDon\'t forget to check.'})
         # Saving the data
         image_folder = Path(image_folder)
@@ -413,6 +415,40 @@ class Engine(Process):
         with open(str(filename_data), 'w') as f:
             json.dump(self._data, f, indent=4)
 
+    def save_screenshot(self, image_path):
+        resized_masks = []
+        original_copy = self._original_image.copy()
+        area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
+        for i in range(len(self._cell_layers)):
+            dummy_layer = np.zeros(self.shape[:2],dtype=np.uint8)
+            c, m = self._cell_layers[i]
+            xx, yy = m
+            dummy_layer[xx,yy] = 1
+            dummy_layer = cv2.resize(dummy_layer.swapaxes(0,1),
+                                    dsize=self._original_size,
+                                    interpolation=cv2.INTER_LINEAR)
+            xx, yy = np.nonzero(dummy_layer)
+            original_copy[xx,yy] = c
+
+            new_pos = np.divide(self._cell_pos[i],self._resized_ratio).astype(np.int)
+            r_start = max(new_pos[1]-10,0)
+            c_start = max(new_pos[0]-30,0)
+
+            original_copy[r_start:r_start+20,
+                          c_start:c_start+80]=255
+
+            cv2.putText(
+                img=original_copy,
+                text=f'{area_list[i]:.2f}',
+                org=tuple(np.clip(new_pos-[30,-5],0,None)),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.5,
+                thickness=1,
+                color=(255,0,0),
+            )
+        print(image_path)
+        Image.fromarray(original_copy).save(image_path)
+
 
     def run(self):
         mainloop = True
@@ -428,8 +464,8 @@ class Engine(Process):
                     # Loading & Showing modes
                     elif k == NEWIMAGE:
                         self.load_image(v)
-                    elif k == NEWMASK:
-                        self.set_new_mask()
+                    # elif k == NEWMASK:
+                    #     self.set_new_mask()
                     elif k == MODE_IMAGE:
                         self.mask_mode = False
                     elif k == MODE_MASK:
@@ -459,6 +495,8 @@ class Engine(Process):
                         self._mp_ratio_pixel_original = v
                         self._mp_ratio_pixel = v*self._resized_ratio
                         self._updated = True
+                    elif k == FILL_SCREENSHOT:
+                        self.save_screenshot(v)
 
             if not self._eventQ.empty():
                 q = self._eventQ.get()
