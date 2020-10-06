@@ -45,8 +45,10 @@ class Console(Process):
         self._img_name_var = tk.StringVar(value='No image loaded')
         self._default_draw_mode_str = ''
         self._draw_mode_var = tk.StringVar(value=self._default_draw_mode_str)
-        self._fill_ratio_var = tk.DoubleVar(value=DEFAULT_MP_RATIO)
+        self._fill_ratio_var = tk.StringVar(
+            value=f'{DEFAULT_MP_RATIO:.4f}μ㎡/pixel')
         self._micro_var = tk.StringVar(value=DEFAULT_MP_MICRO)
+        self._pixel_var = tk.StringVar(value=DEFAULT_MP_PIXEL)
 
         # # Configure Top-left threshold setting menu ###########################
         self.frame_threshold = ttk.Frame(self.mainframe, padding='5 5 5 5')
@@ -120,24 +122,37 @@ class Console(Process):
         # Configure Bottom-Middle Fill menu ###################################
         self.frame_fill = ttk.Frame(self.root, padding='5 5 5 5')
         self.frame_fill.grid(column=1, row=1, sticky=(tk.W, tk.S))
-        self.label_fill_warning = ttk.Label(self.frame_fill,
-                    text='Values : 1 ~ 1000')
-        self.label_fill_warning.grid(column=0, row=0, columnspan=2)
+        # self.label_fill_warning = ttk.Label(self.frame_fill,
+        #             text='Values : 1 ~ 1000')
+        # self.label_fill_warning.grid(column=0, row=0, columnspan=2)
         self.label_fill_micro = ttk.Label(self.frame_fill,
-                                          text='Standard μm :')
-        self.label_fill_micro.grid(column=0,row=1)
+                                          text='Reference μm (1~1000) :',
+                                          anchor='ne')
+        self.label_fill_micro.grid(column=0,row=0, sticky=(tk.E))
         self.spinbox_fill_micro = ttk.Spinbox(self.frame_fill,
                                               from_=1, to=1000,
                                               increment=5, width=5,
                                               textvariable=self._micro_var,
                                               command=self.spinbox_fill_micro_change)
         self.spinbox_fill_micro.bind('<Return>',self.spinbox_fill_micro_change)
-        self.spinbox_fill_micro.grid(column=1, row=1)
+        self.spinbox_fill_micro.grid(column=1, row=0, sticky=(tk.NW))
+        self.label_fill_pixel = ttk.Label(self.frame_fill,
+                                          text='Reference pixel(Original image) :')
+        self.label_fill_pixel.grid(column=0,row=1)
+        self.entry_fill_pixel = ttk.Entry(self.frame_fill,
+                                          textvariable=self._pixel_var,
+                                          width=10)
+        self.entry_fill_pixel.bind('<Return>',self.entry_fill_pixel_change)
+        self.entry_fill_pixel.grid(column=1,row=1)
+        self.button_fill_pixel_set = ttk.Button(self.frame_fill,
+                                                text='Set pixel',
+                                                command=self.entry_fill_pixel_change)
+        self.button_fill_pixel_set.grid(column=2, row=1)
         self.label_fill_ratio = ttk.Label(self.frame_fill,
                                          textvariable=self._fill_ratio_var)
         self.label_fill_ratio.grid(column=0, row=2)
         self.button_fill_ratio = ttk.Button(self.frame_fill,
-                                            text='Set Length',
+                                            text='Manually set ratio',
                                             command=partial(button_fill_ratio_f,
                                             q=self._to_EngineQ))
         self.button_fill_ratio.grid(column=0, row=3, sticky=(tk.N))
@@ -267,7 +282,20 @@ class Console(Process):
         else :
             self._micro_var.set(DEFAULT_MP_MICRO)
             val = DEFAULT_MP_MICRO
+            self.message_box('Only positive numbers are allowed')
         self._to_EngineQ.put({FILL_MICRO:int(val)})
+
+    def entry_fill_pixel_change(self, *args):
+        val = self._pixel_var.get()
+        try:
+            pixel = float(val)
+            if pixel<=0:
+                raise ValueError
+        except ValueError:
+            self._pixel_var.set(DEFAULT_MP_PIXEL)
+            pixel = DEFAULT_MP_PIXEL
+            self.message_box('Only positive numbers are allowed')
+        self._to_EngineQ.put({FILL_PIXEL:pixel})
 
     def message_box(self, string):
         messagebox.showinfo(message=string)
@@ -281,9 +309,11 @@ class Console(Process):
                 elif k == MODE_FILL_MP_RATIO:
                     self._draw_mode_var.set('Set micrometer to pixel ratio')
                 elif k == FILL_MP_RATIO:
-                    self._fill_ratio_var.set(v)
+                    self._fill_ratio_var.set(f'{v:.4f}μ㎡/pixel')
                 elif k == FILL_LIST:
                     self.list_items = v
+                elif k == FILL_PIXEL:
+                    self._pixel_var.set(v)
                 elif k == MESSAGE_BOX:
                     self.message_box(v)
         self.root.after(16, self.update)

@@ -65,7 +65,9 @@ class Engine(Process):
         # Ratio = (micrometer / pixel)**2  -> Because it's area ratio
         self._mp_ratio = DEFAULT_MP_RATIO
         self._mp_ratio_pixel = DEFAULT_MP_PIXEL
+        self._mp_ratio_pixel_original = DEFAULT_MP_PIXEL
         self._mp_ratio_micrometer = DEFAULT_MP_MICRO
+        self._resized_ratio = DEFAULT_RESIZED_RATIO
         # Data to save
         self._data = []
 
@@ -174,8 +176,19 @@ class Engine(Process):
         self._updated = True
 
     def load_image(self, path:str):
-        im = Image.open(path).resize((1200,900))
-        self.image = np.asarray(im).swapaxes(0,1)
+        im = Image.open(path)
+        self._original_size = im.size
+        o_width, o_height = im.size
+        if o_width*4 >= o_height*3:
+            # if wider than taller, fix width to 1200
+            new_width = 1200
+            new_height = o_height*1200//o_width
+        else:
+            # if taller than wider, fix height to 900
+            new_height = 900
+            new_width = o_width*1200//o_height
+        self._resized_ratio = new_width / o_width
+        self.image = np.asarray(im.resize((new_width, new_height))).swapaxes(0,1)
         self.reset()
         self._updated = True
 
@@ -240,7 +253,10 @@ class Engine(Process):
             self._to_ConsoleQ.put({self.mode:None})
         else:
             self._to_ConsoleQ.put({MODE_NONE:None})
-        self._to_ConsoleQ.put({FILL_MP_RATIO:self._mp_ratio})
+
+        original_ratio = self._mp_ratio * (self._resized_ratio**2)
+        self._to_ConsoleQ.put({FILL_MP_RATIO:original_ratio})
+        self._to_ConsoleQ.put({FILL_PIXEL:self._mp_ratio_pixel_original})
 
     def put_ratio_list(self):
         self._mp_ratio = (self._mp_ratio_micrometer/self._mp_ratio_pixel)**2
@@ -336,6 +352,7 @@ class Engine(Process):
     def fill_ratio_end(self, pos):
         pixel_dist = np.sqrt(np.sum(np.subtract(self._mp_ratio_start_pos,pos)**2))
         self._mp_ratio_pixel = pixel_dist
+        self._mp_ratio_pixel_original = pixel_dist/self._resized_ratio
         self._always_on_layers.pop()
         self._is_drawing = False
         self._mp_ratio_start_pos = None
@@ -437,6 +454,10 @@ class Engine(Process):
                         self.fill_save(*v)
                     elif k == FILL_MICRO:
                         self._mp_ratio_micrometer = v
+                        self._updated = True
+                    elif k == FILL_PIXEL:
+                        self._mp_ratio_pixel_original = v
+                        self._mp_ratio_pixel = v*self._resized_ratio
                         self._updated = True
 
             if not self._eventQ.empty():
