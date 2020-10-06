@@ -66,7 +66,7 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
     
         - A screenshot
 
-        - .json data to *dir_to_image\\save\\*
+        - .json data to <dir_to_image>\\save\\
 
     -*This JSON data holds information about the box and the filled cells. If you do not need it, it's safe to delete them*
 
