@@ -446,9 +446,12 @@ class Engine(Process):
                 thickness=1,
                 color=(255,0,0),
             )
-        print(image_path)
-        Image.fromarray(original_copy).save(image_path)
-
+        try:
+            Image.fromarray(original_copy).save(image_path)
+        except:
+            self._to_ConsoleQ.put({MESSAGE_BOX:'Failed to Save screenshot'})
+            return
+        self._to_ConsoleQ.put({MESSAGE_BOX:'Saved screenshot'})
 
     def run(self):
         mainloop = True

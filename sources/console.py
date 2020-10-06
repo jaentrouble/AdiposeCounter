@@ -259,8 +259,7 @@ class Console(Process):
         default_name = os.path.splitext(self._image_name_list[self._image_idx])[0]
         default_name = default_name + '_screenshot'
         screenshot_path = filedialog.asksaveasfilename(title='Save screenshot as',
-                            filetypes=[('.png','*.png'),
-                                        ('.jpg','*.jpg')],
+                            filetypes=IMAGE_TYPES_TK,
                             initialfile=default_name,
                             typevariable=self._save_type_var)
         if screenshot_path == '':
