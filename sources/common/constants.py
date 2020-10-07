@@ -83,7 +83,7 @@ K_ENTER = 1013
 K_ESCAPE = 1027
 
 # Console Constants ###########################################################
-IMAGE_FORMATS = ('.jpg', '.png', '.jpeg', '.tif', '.tiff')
+IMAGE_FORMATS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff')
 IMAGE_TYPES_TK = []
 for f in IMAGE_FORMATS:
     IMAGE_TYPES_TK.append((f,'*'+f))

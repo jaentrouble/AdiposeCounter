@@ -261,12 +261,14 @@ class Console(Process):
         screenshot_path = filedialog.asksaveasfilename(title='Save screenshot as',
                             filetypes=IMAGE_TYPES_TK,
                             initialfile=default_name,
-                            typevariable=self._save_type_var)
+                            typevariable=self._save_type_var,
+                            defaultextension=self._save_type_var,
+                            confirmoverwrite=True)
         if screenshot_path == '':
             self.message_box('Screenshot not saved')
         else:
             save_type = self._save_type_var.get()
-            self._to_EngineQ.put({FILL_SCREENSHOT:screenshot_path+save_type})
+            self._to_EngineQ.put({FILL_SCREENSHOT:screenshot_path})
 
     def button_draw_cancel_f(self):
         answer = messagebox.askyesno(message='This will delete all unapplied drawings.\
