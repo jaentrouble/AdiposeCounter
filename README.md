@@ -1,6 +1,6 @@
 # AdiposeCounter
 
-![image](https://user-images.githubusercontent.com/45917844/92935104-4e504d00-f483-11ea-959d-c935aa4b39a4.png)
+![image](https://user-images.githubusercontent.com/45917844/95225826-2b714880-0837-11eb-9bb5-acf44e60e953.png)
 
 
 
@@ -28,7 +28,7 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 >![image](https://user-images.githubusercontent.com/45917844/92934509-886d1f00-f482-11ea-91c1-9ab98c7306de.png)
 
 
-## How to use (v2.1)
+## How to use (v2.2)
 
 1. Open folder
 
@@ -44,7 +44,13 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
     
     3-2. The calculated areas are shown on the list.
 
-4. Use **Set Length** to modify pixel-to-area ratio. 
+4. Set reference pixel to micrometer ratio.
+
+    4-1. If you know exact reference pixel value (ex. measured from other programs like imageJ, or to use the same value as last time),
+    you can set your reference pixel value directly. Type in the number and press <Enter(Return)> or click **Set pixel** button.
+    
+    4-2. If you want to set manually by clicking on the image, press **Manually set ratio** and click the both ends of
+    the image scale bar.
 
     -*The default value is empirical value when the image is 1600\*1200 with 50μm standard*
 
@@ -52,11 +58,19 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 
 6. You can select a value from the list and **Delete** it.
 
-7. Press **Save** and select desired Excel(\*.xlsx) file to save the area list. This will also save .json data to *dir_to_image\\save\\*
+7. You can save screenshot anytime by clicking **Save Screenshot** button.
+
+8. Press **Save** and select desired Excel(\*.xlsx) file to save the area list.
+
+    This will also save
+    
+        - A screenshot
+
+        - .json data to <dir_to_image>\save\
 
     -*This JSON data holds information about the box and the filled cells. If you do not need it, it's safe to delete them*
 
-8. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
+9. Use **Next** and **Prev** button to change image. This will **RESET** masks and list of cell areas. So make sure you saved all before changing image.
 
     -*You need to save __PER__ image.*
 
