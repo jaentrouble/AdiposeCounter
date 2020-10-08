@@ -181,7 +181,7 @@ class Engine(Process):
         self._original_size = im.size
         self._original_image = np.asarray(im)
         o_width, o_height = im.size
-        if o_width*4 >= o_height*3:
+        if o_width*3 >= o_height*4:
             # if wider than taller, fix width to 1200
             new_width = 1200
             new_height = o_height*1200//o_width
