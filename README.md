@@ -93,4 +93,4 @@ https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-d
 
 [4] Python www.python.org
 
-[5] Icon from : icons8.com
+[5] Icon from : www.icons8.com
