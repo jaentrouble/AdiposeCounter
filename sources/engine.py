@@ -188,7 +188,7 @@ class Engine(Process):
         else:
             # if taller than wider, fix height to 900
             new_height = 900
-            new_width = o_width*1200//o_height
+            new_width = o_width*900//o_height
         self._resized_ratio = new_width / o_width
         self.image = np.asarray(im.resize((new_width, new_height))).swapaxes(0,1)
         self.reset()
