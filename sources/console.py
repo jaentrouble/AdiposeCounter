@@ -49,6 +49,7 @@ class Console(Process):
             value=f'{DEFAULT_MP_RATIO:.4f}μ㎡/pixel')
         self._micro_var = tk.StringVar(value=DEFAULT_MP_MICRO)
         self._pixel_var = tk.StringVar(value=DEFAULT_MP_PIXEL_ORIGINAL)
+        self._ratio_var = tk.DoubleVar()
 
         self._save_type_var = tk.StringVar()
 
@@ -66,20 +67,19 @@ class Console(Process):
                                           q=self._to_EngineQ))
         self.button_cancel_box.grid(column=0, row=1, sticky=(tk.W))
 
-        self.ratio = tk.DoubleVar()
-        self.scale_ratio = ttk.Scale(self.frame_threshold,
-                                     from_=0, to=100, length=100,
-                                     variable=self.ratio)
-        self.scale_ratio.set(50)
-        self.scale_ratio.grid(column=0, row=3)
         self.button_ratio = ttk.Button(self.frame_threshold,
                                        text='Set',
                                        command=partial(button_ratio_f, 
-                                       self.ratio, self._to_EngineQ))
+                                       self._ratio_var, self._to_EngineQ))
         self.button_ratio.grid(column=1, row=3)
-        self.label_ratio = ttk.Label(self.frame_threshold,
-                                     textvariable=self.ratio)
+        self.label_ratio = ttk.Label(self.frame_threshold)
         self.label_ratio.grid(column=0, row=4)
+        self.scale_ratio = ttk.Scale(self.frame_threshold,
+                                     from_=0, to=100, length=100,
+                                     variable=self._ratio_var,
+                                     command=self.scale_ratio_f)
+        self.scale_ratio.set(50)
+        self.scale_ratio.grid(column=0, row=3)
 
         # Configure Top-Middle show/hide mask menu ############################
         self.frame_mask = ttk.Frame(self.root, padding='5 5 5 5')
@@ -209,6 +209,10 @@ class Console(Process):
     def list_items(self, list_of_items):
         self._list_items = list_of_items.copy()
         self._list_var.set(self._list_items)
+
+    def scale_ratio_f(self, ratio):
+        ratio = float(ratio)
+        self.label_ratio['text'] = f'{ratio:.2f}'
 
     def button_open_f(self, ask=True):
         if ask:
