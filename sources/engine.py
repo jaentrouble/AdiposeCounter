@@ -194,43 +194,6 @@ class Engine(Process):
         self.reset()
         self._updated = True
 
-    # def set_empty_mask(self):
-    #     """
-    #     Set a new empty mask that is the same shape as current image
-    #     """
-    #     self.mask = np.zeros_like(self.image)
-    #     self._updated = True
-
-    # def set_new_mask(self):
-    #     """
-    #     ratio : if ratio * dist_to_memcolor > (1-ratio) * dist_to_cellcolor,
-    #     the pixel is considered as cell
-        
-    #     """
-    #     # Default ratio
-    #     ratio = 0.3
-    #     casted_input = resize(self.image, (200,200), preserve_range=True,
-    #                         anti_aliasing=True)[np.newaxis,:].astype(np.float32)
-    #     raw_output = self._mask_model(casted_input).numpy()[0]
-    #     self.prob_mask = resize(raw_output, self.shape, preserve_range=True,
-    #                        anti_aliasing=True)
-    #     self.mask = (self.prob_mask > ratio) * CELL
-    #     self._tmp_mask = self.mask
-    #     self.mode = None
-    #     self.mask_mode = True
-    #     self._layers = []
-    #     self._updated = True
-        # ####### DEBUG
-        # import matplotlib.pyplot as plt
-        # print(casted_input.dtype)
-        # print(casted_input[0][0][:10])
-        # print(self.image.dtype)
-        # fig = plt.figure()
-        # ax = fig.add_subplot(1,2,1)
-        # ax.imshow(casted_input[0])
-        # ax = fig.add_subplot(1,2,2)
-        # ax.imshow(raw_output)
-        # plt.show()
 
     def change_mask_ratio(self, ratio:float):
         self._mask_ratio = ratio / 100
@@ -300,39 +263,42 @@ class Engine(Process):
         Draw Box
         """
         self._always_on_layers.pop()
-        color = np.random.randint(0,255,3)
-        # new_layer = np.zeros((self.shape[0],self.shape[1]),
-        #                      dtype=np.bool)
-        # del last_layer
-        x0, y0 = self._box_start_pos
-        x1, y1 = pos
-        r0, c0 = min(x0, x1), min(y0, y1)
-        r1, c1 = max(x0, x1), max(y0, y1)
-        clipped_image =  self.image[r0:r1,c0:c1]
-        casted_input = resize(clipped_image, (200,200), preserve_range=True,
+        # If user clicked on the same axis (no width or height), skip
+        if not np.any(np.equal(self._box_start_pos, pos)):
+            color = np.random.randint(0,255,3)
+            x0, y0 = self._box_start_pos
+            x1, y1 = pos
+            r0, c0 = min(x0, x1), min(y0, y1)
+            r1, c1 = max(x0, x1), max(y0, y1)
+            clipped_image =  self.image[r0:r1,c0:c1]
+            casted_input = resize(clipped_image, (200,200), preserve_range=True,
                             anti_aliasing=True)[np.newaxis,:].astype(np.float32)
-        raw_output = self._mask_model(casted_input).numpy()[0]
-        prob_mask = resize(raw_output, clipped_image.shape[:2], 
-                        preserve_range=True, anti_aliasing=True)
-        mask = (prob_mask > self._mask_ratio)
-        # np.add(new_layer[r0:r1,c0:c1], mask, 
-        #         out=new_layer[r0:r1,c0:c1])
-        xx, yy = np.nonzero(mask)
-        np.add(xx, r0, out=xx)
-        np.add(yy, c0, out=yy)
-        self._cell_layers.append((color,(xx, yy)))
-        self._cell_counts.append(len(xx))
+            raw_output = self._mask_model(casted_input).numpy()[0]
+            prob_mask = resize(raw_output, clipped_image.shape[:2], 
+                            preserve_range=True, anti_aliasing=True)
+            mask = (prob_mask > self._mask_ratio)
+            if not np.any(mask):
+                # If there's no pixels detected as cell, skip
+                self._to_ConsoleQ.put({
+                    MESSAGE_BOX:'No pixels detected as a cell'
+                })
+            else:
+                xx, yy = np.nonzero(mask)
+                np.add(xx, r0, out=xx)
+                np.add(yy, c0, out=yy)
+                self._cell_layers.append((color,(xx, yy)))
+                self._cell_counts.append(len(xx))
 
-        # To viewer (position of cell)
-        avgx = np.average(xx)
-        avgy = np.average(yy)
-        self._cell_pos.append((avgx, avgy))
+                # To viewer (position of cell)
+                avgx = np.average(xx)
+                avgy = np.average(yy)
+                self._cell_pos.append((avgx, avgy))
 
-        datum = {}
-        datum['box'] = [[r0,c0],[r1,c1]]
-        datum['mask'] = [xx.tolist(), yy.tolist()]
-        datum['size'] = self.shape[:2]
-        self._data.append(datum)
+                datum = {}
+                datum['box'] = [[r0,c0],[r1,c1]]
+                datum['mask'] = [xx.tolist(), yy.tolist()]
+                datum['size'] = self.shape[:2]
+                self._data.append(datum)
         self._mask_mode = True
         self._box_start_pos = None
         self._is_drawing = False
@@ -353,8 +319,10 @@ class Engine(Process):
 
     def fill_ratio_end(self, pos):
         pixel_dist = np.sqrt(np.sum(np.subtract(self._mp_ratio_start_pos,pos)**2))
-        self._mp_ratio_pixel = pixel_dist
-        self._mp_ratio_pixel_original = pixel_dist/self._resized_ratio
+        # Do not update if clicked the same position
+        if pixel_dist != 0 :
+            self._mp_ratio_pixel = pixel_dist
+            self._mp_ratio_pixel_original = pixel_dist/self._resized_ratio
         self._always_on_layers.pop()
         self._is_drawing = False
         self._mp_ratio_start_pos = None
