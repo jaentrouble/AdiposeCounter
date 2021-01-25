@@ -94,6 +94,16 @@ class Console(Process):
                                            command=partial(button_hide_mask_f,
                                            q=self._to_EngineQ))
         self.button_hide_mask.grid(column=0, row=1)
+        self.button_show_text = ttk.Button(self.frame_mask,
+                                           text='Show text',
+                                           command=partial(button_show_text_f,
+                                           q=self._to_EngineQ))
+        self.button_show_text.grid(column=0, row=2)
+        self.button_hide_text = ttk.Button(self.frame_mask,
+                                           text='Hide text',
+                                           command=partial(button_hide_text_f,
+                                           q=self._to_EngineQ))
+        self.button_hide_text.grid(column=0, row=3)
 
         # Configure Top-Right Prev/Next menu ##################################
         self.frame_prevnext = ttk.Frame(self.root, padding='5 5 5 5')
@@ -271,7 +281,6 @@ class Console(Process):
         if screenshot_path == '':
             self.message_box('Screenshot not saved')
         else:
-            save_type = self._save_type_var.get()
             self._to_EngineQ.put({FILL_SCREENSHOT:screenshot_path})
 
     def button_draw_cancel_f(self):

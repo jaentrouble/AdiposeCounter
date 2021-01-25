@@ -32,6 +32,9 @@ class Viewer(Process) :
         self._termQ = termQ
         self._show_cursor = False
 
+        self._last_pos_list = []
+        self._show_text = True
+
     def run(self) :
         """
         Run viewer's mainloop
@@ -104,6 +107,11 @@ class Viewer(Process) :
 
                     elif k == POS_LIST:
                         self.update_area(v)
+
+                    elif k == TEXT_ON:
+                        self.text_on()
+                    elif k == TEXT_OFF:
+                        self.text_off()
             ###escape
             for event in pygame.event.get() :
                 if event.type == pygame.QUIT :
@@ -154,20 +162,32 @@ class Viewer(Process) :
         self._width, self._height = size
 
     def update_area(self, pos_list):
-        idx = 0
-        for idx, pa in enumerate(pos_list):
-            pos, area = pa
-            if idx >= len(self._cell_areas):
-                new_cell = CellArea(self._font, area, pos)
-                self._allgroup.add(new_cell)
-                self._cell_areas.append(new_cell)
-            else :
-                self._cell_areas[idx].change_area(area, pos)
-                self._cell_areas[idx].visible = True
-                self._cell_areas[idx].dirty = True
-        for ca in self._cell_areas[idx+1:]:
+        if self._show_text:
+            idx = -1
+            self._last_pos_list = pos_list
+            for idx, pa in enumerate(pos_list):
+                pos, area = pa
+                if idx >= len(self._cell_areas):
+                    new_cell = CellArea(self._font, area, pos)
+                    self._allgroup.add(new_cell)
+                    self._cell_areas.append(new_cell)
+                else :
+                    self._cell_areas[idx].change_area(area, pos)
+                    self._cell_areas[idx].visible = True
+                    self._cell_areas[idx].dirty = True
+            for ca in self._cell_areas[idx+1:]:
+                ca.visible = False
+                ca.dirty = True
+
+    def text_off(self):
+        for ca in self._cell_areas:
             ca.visible = False
             ca.dirty = True
+        self._show_text = False
+    
+    def text_on(self):
+        self._show_text = True
+        self.update_area(self._last_pos_list)
 
     def close(self):
         pygame.quit()

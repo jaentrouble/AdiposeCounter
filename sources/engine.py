@@ -7,15 +7,15 @@ from skimage import draw
 from skimage.transform import resize
 from openpyxl import load_workbook
 import os
-import tensorflow as tf
-from tensorflow import keras
-from .model_loader import get_model
 import pickle
 import json
 from pathlib import Path
+import tflite_runtime.interpreter as tflite
 
 # To limit loop rate
 from pygame.time import Clock
+
+MODEL_PATH = 'sources/tflite_models/two_click.tflite'
 
 class Engine(Process):
     """
@@ -150,9 +150,7 @@ class Engine(Process):
 
     @mode.setter
     def mode(self, mode):
-        if self._mode == MODE_DRAW_MEM:
-            self.draw_stop()
-        elif self._mode == MODE_FILL_MP_RATIO and self._is_drawing:
+        if self._mode == MODE_FILL_MP_RATIO and self._is_drawing:
             self.fill_ratio_cancel()
         elif self._mode == MODE_DRAW_BOX:
             self.draw_box_stop()
@@ -271,10 +269,19 @@ class Engine(Process):
             r0, c0 = min(x0, x1), min(y0, y1)
             r1, c1 = max(x0, x1), max(y0, y1)
             clipped_image =  self.image[r0:r1,c0:c1]
-            casted_input = resize(clipped_image, (200,200), preserve_range=True,
-                            anti_aliasing=True)[np.newaxis,:].astype(np.float32)
-            raw_output = self._mask_model(casted_input).numpy()[0]
-            prob_mask = resize(raw_output, clipped_image.shape[:2], 
+            casted_input = resize(clipped_image, self._input_size, 
+                            preserve_range=True,
+                            anti_aliasing=True)[np.newaxis,:].astype(np.uint8)
+            self._mask_model.set_tensor(
+                self._input_idx,
+                casted_input,
+            )
+            self._mask_model.invoke()
+            logit_output = np.squeeze(self._mask_model.get_tensor(
+                self._output_idx
+            ))
+            prob_output = 1/(1+np.exp(-logit_output))
+            prob_mask = resize(prob_output, clipped_image.shape[:2], 
                             preserve_range=True, anti_aliasing=True)
             mask = (prob_mask > self._mask_ratio)
             if not np.any(mask):
@@ -384,7 +391,6 @@ class Engine(Process):
             json.dump(self._data, f, indent=4)
 
     def save_screenshot(self, image_path):
-        resized_masks = []
         original_copy = self._original_image.copy()
         area_list = np.multiply(self._cell_counts, self._mp_ratio).tolist()
         for i in range(len(self._cell_layers)):
@@ -421,10 +427,21 @@ class Engine(Process):
             return
         self._to_ConsoleQ.put({MESSAGE_BOX:'Saved screenshot'})
 
+    def initialize_model(self):
+        self._mask_model = tflite.Interpreter(model_path=MODEL_PATH)
+        self._mask_model.allocate_tensors()
+        input_details = self._mask_model.get_input_details()[0]
+        # (Batch, H, W, C)
+        input_shape = input_details['shape']
+        self._input_size = input_shape[2:0:-1]
+        self._input_idx = input_details['index']
+        output_details = self._mask_model.get_output_details()[0]
+        self._output_idx = output_details['index']
+
     def run(self):
         mainloop = True
         self._clock = Clock()
-        self._mask_model = get_model('hr_5_3_0')
+        self.initialize_model()
         while mainloop:
             self._clock.tick(60)
             if not self._to_EngineQ.empty():
@@ -468,6 +485,12 @@ class Engine(Process):
                         self._updated = True
                     elif k == FILL_SCREENSHOT:
                         self.save_screenshot(v)
+                    # Show/Hide text -> pass to Viewer directly
+                    elif k == TEXT_OFF:
+                        self._etcQ.put({TEXT_OFF:None})
+                    elif k == TEXT_ON:
+                        self._etcQ.put({TEXT_ON:None})
+                        self._updated = True
 
             if not self._eventQ.empty():
                 q = self._eventQ.get()
