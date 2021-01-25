@@ -1,6 +1,5 @@
 ﻿pygame
-scikit-image
-tensorflow-cpu
+tflite-runtime
 pillow
 openpyxl
 opencv-python
