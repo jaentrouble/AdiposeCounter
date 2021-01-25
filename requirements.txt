@@ -1,5 +1,4 @@
 ﻿pygame
-scikit-image
 tflite-runtime
 pillow
 openpyxl

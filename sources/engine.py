@@ -3,10 +3,9 @@ from multiprocessing import Process, Queue
 from PIL import Image
 import cv2
 from .common.constants import *
-from skimage import draw
-from skimage.transform import resize
 from openpyxl import load_workbook
 import os
+import sys
 import pickle
 import json
 from pathlib import Path
@@ -15,7 +14,13 @@ import tflite_runtime.interpreter as tflite
 # To limit loop rate
 from pygame.time import Clock
 
-MODEL_PATH = 'sources/tflite_models/two_click.tflite'
+rel_path = 'tflite_models/two_click.tflite'
+if getattr(sys,'frozen',False) and hasattr(sys,'_MEIPASS'):
+    bundle_dir = Path(sys._MEIPASS)
+else:
+    bundle_dir = ''
+
+MODEL_PATH = str(Path.cwd()/bundle_dir/rel_path)
 
 class Engine(Process):
     """
@@ -269,9 +274,8 @@ class Engine(Process):
             r0, c0 = min(x0, x1), min(y0, y1)
             r1, c1 = max(x0, x1), max(y0, y1)
             clipped_image =  self.image[r0:r1,c0:c1]
-            casted_input = resize(clipped_image, self._input_size, 
-                            preserve_range=True,
-                            anti_aliasing=True)[np.newaxis,:].astype(np.uint8)
+            casted_input = cv2.resize(clipped_image, dsize=self._input_size, 
+                            interpolation=cv2.INTER_LINEAR)[np.newaxis,:]
             self._mask_model.set_tensor(
                 self._input_idx,
                 casted_input,
@@ -281,8 +285,8 @@ class Engine(Process):
                 self._output_idx
             ))
             prob_output = 1/(1+np.exp(-logit_output))
-            prob_mask = resize(prob_output, clipped_image.shape[:2], 
-                            preserve_range=True, anti_aliasing=True)
+            prob_mask = cv2.resize(prob_output, dsize=clipped_image.shape[1::-1], 
+                            interpolation=cv2.INTER_LINEAR)
             mask = (prob_mask > self._mask_ratio)
             if not np.any(mask):
                 # If there's no pixels detected as cell, skip
@@ -433,7 +437,7 @@ class Engine(Process):
         input_details = self._mask_model.get_input_details()[0]
         # (Batch, H, W, C)
         input_shape = input_details['shape']
-        self._input_size = input_shape[2:0:-1]
+        self._input_size = tuple(input_shape[2:0:-1])
         self._input_idx = input_details['index']
         output_details = self._mask_model.get_output_details()[0]
         self._output_idx = output_details['index']
