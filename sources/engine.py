@@ -198,7 +198,7 @@ class Engine(Process):
     def change_mask_ratio(self, ratio:float):
         self._mask_ratio = ratio / 100
         self.mode = None
-        msg = f'Ratio set to {self._mask_ratio}'
+        msg = f'Ratio set to {self._mask_ratio:.2f}'
         self._to_ConsoleQ.put({MESSAGE_BOX:msg})
         self._updated = True
     
